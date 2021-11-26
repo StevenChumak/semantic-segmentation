@@ -1,0 +1,20 @@
+CMD: "python -m torch.distributed.launch --nproc_per_node=2 train.py"
+
+HPARAMS: [
+  {
+   dataset: xxx,
+   cv: 0,
+   syncbn: true,
+   apex: true,
+   fp16: true,
+   crop_size: "720,1440",
+   bs_trn: 1,
+   poly_exp: 2,
+   lr: 5e-3,
+   n_scales: "0.5,1.0",
+   supervised_mscale_loss_wt: 0.05,
+   arch: ocrnet.HRNet_Mscale,
+   result_dir: LOGDIR,
+   RUNX.TAG: '{arch}',
+  },
+]

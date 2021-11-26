@@ -179,7 +179,9 @@ def setup_loaders(args):
             mode='train',
             joint_transform_list=train_joint_transform_list,
             img_transform=train_input_transform,
-            label_transform=target_train_transform)
+            label_transform=target_train_transform,
+            bg_swap=args.bg_swap,
+            )
 
         if args.apex:
             from datasets.sampler import DistributedSampler

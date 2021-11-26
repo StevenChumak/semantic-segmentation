@@ -437,6 +437,10 @@ def print_evaluate_results(hist, iu, epoch=0, iou_per_scale=None,
     iu_FN = hist.sum(axis=0) - np.diag(hist)
     iu_TP = np.diag(hist)
 
+    # logx.metric('val', iu_FP, epoch)
+    # logx.metric('val', iu_FN, epoch)
+    # logx.metric('val', iu_TP, epoch)
+
     logx.msg('IoU:')
 
     header = ['Id', 'label']

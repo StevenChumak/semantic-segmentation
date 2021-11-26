@@ -270,6 +270,10 @@ parser.add_argument('--ocr_aux_loss_rmi', action='store_true', default=False,
                     help='allow rmi for aux loss')
 
 
+parser.add_argument('--bg_swap', action='store_true', default=False,
+                    help='swap image background at random')                    
+
+
 args = parser.parse_args()
 args.best_record = {'epoch': -1, 'iter': 0, 'val_loss': 1e10, 'acc': 0,
                     'acc_cls': 0, 'mean_iu': 0, 'fwavacc': 0}

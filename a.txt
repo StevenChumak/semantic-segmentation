@@ -1,0 +1,36 @@
+python train.py --arch "ocrnet.HRNet_Mscale" \
+--lr 5e-4 \
+--n_scales "1.0, 1.5, 2.0" \
+--dataset "xxx" \
+--crop_size "360,720" \
+--bs_trn 1 \
+--optimizer "adam" \
+--class_uniform_tile 360 \
+--fp16 \
+--result_dir "testrun/newDataset/360x720/railBed-combined--neighbor-single/2" \
+--snapshot "testrun/newDataset/360x720/railBed-combined--neighbor-single/1/best_checkpoint_ep30.pth" \
+--gblur \
+--brt_aug \
+--bg_swap \
+--poly_exp 2 \
+
+
+--freeze_trunk 
+--bg_swap \
+
+
+
+eval
+
+CUDA_VISIBLE_DEVICES=1 python train.py \
+--arch ocrnet.HRNet_Mscale \
+--dataset xxx \
+--n_scales "0.5,1.0,2.0" \
+--fp16 \
+--result_dir "results/newDataset/360x720/railBed-combined--neighbor-single/1/" \
+--eval_folder "/home/s0559816/Desktop/dataset/assembled-720-360-new/test/" \
+--snapshot "testrun/newDataset/360x720/railBed-combined--neighbor-single/1/best_checkpoint_ep30.pth" \
+--bs_val 1 \
+--eval val \
+--dump_assets \
+--dump_all_images

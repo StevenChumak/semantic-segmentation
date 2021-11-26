@@ -1,0 +1,8 @@
+__pycache__/
+.vscode/
+.env/
+logs/
+results/
+results2/
+testrun/
+sweep/

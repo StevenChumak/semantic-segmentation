@@ -165,7 +165,7 @@ def pooled_class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
 
 
 def unpooled_class_centroids_all(items, num_classes, id2trainid,
-                                 tile_size=1024):
+                                 tile_size=cfg.DATASET.CLASS_UNIFORM_TILE):
     """
     Calculate class centroids for all classes for all images for all tiles.
     items: list of (image_fn, label_fn)
@@ -186,7 +186,7 @@ def unpooled_class_centroids_all(items, num_classes, id2trainid,
     return centroids
 
 
-def class_centroids_all(items, num_classes, id2trainid, tile_size=1024):
+def class_centroids_all(items, num_classes, id2trainid, tile_size=cfg.DATASET.CLASS_UNIFORM_TILE):
     """
     intermediate function to call pooled_class_centroid
     """

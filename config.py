@@ -49,7 +49,7 @@ cfg = __C
 __C.GLOBAL_RANK = 0
 __C.EPOCH = 0
 # Absolute path to a location to keep some large files, not in this dir.
-__C.ASSETS_PATH = '/home/dcg-adlr-atao-data.cosmos277/assets'
+__C.ASSETS_PATH = '/home/s0559816/Desktop/'
 
 # Use class weighted loss per batch to increase loss for low pixel count classes per batch
 __C.BATCH_WEIGHTING = False
@@ -74,9 +74,24 @@ __C.TRAIN.FP16 = False
 
 #Attribute Dictionary for Dataset
 __C.DATASET = AttrDict()
+
+__C.DATASET.RAILSEM19_DIR = "/data/RailSem19/rs19_val/"
+
+__C.DATASET.TRAINRAILS_DIR = \
+     os.path.join(__C.ASSETS_PATH, 'dataset/assembled-1440-720-2/')
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#    os.path.join(__C.ASSETS_PATH, 'mono/')
+
+__C.DATASET.BACKGROUND_DIR = \
+     os.path.join(__C.ASSETS_PATH, 'railway-segmentation/data/bgr/')
+     
+__C.DATASET.BACKGROUND_FILETYPE = "jpg"
+
+
 #Cityscapes Dir Location
-__C.DATASET.CITYSCAPES_DIR = \
-  os.path.join(__C.ASSETS_PATH, 'data/Cityscapes')
+# __C.DATASET.CITYSCAPES_DIR = \
+#   os.path.join(__C.ASSETS_PATH, 'data/Cityscapes')
 __C.DATASET.CITYSCAPES_CUSTOMCOARSE = \
   os.path.join(__C.ASSETS_PATH, 'data/Cityscapes/autolabelled')
 __C.DATASET.CENTROID_ROOT = \
@@ -100,7 +115,7 @@ __C.DATASET.NUM_CLASSES = 0
 __C.DATASET.IGNORE_LABEL = 255
 __C.DATASET.DUMP_IMAGES = False
 __C.DATASET.CLASS_UNIFORM_PCT = 0.5
-__C.DATASET.CLASS_UNIFORM_TILE = 1024
+__C.DATASET.CLASS_UNIFORM_TILE = 720
 __C.DATASET.COARSE_BOOST_CLASSES = None
 __C.DATASET.CV = 0
 __C.DATASET.COLORIZE_MASK_FN = None
