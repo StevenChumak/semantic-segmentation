@@ -40,6 +40,7 @@ from network.wider_resnet import wrn38
 from network.SEresnext import se_resnext50_32x4d, se_resnext101_32x4d
 from network.Resnet import resnet50, resnet101
 import network.hrnetv2 as hrnetv2
+# from network.wcid import WCID
 
 from runx.logx import logx
 from config import cfg
@@ -134,6 +135,12 @@ def get_trunk(trunk_name, output_stride=8):
         high_level_ch = backbone.high_level_ch
         s2_ch = -1
         s4_ch = -1
+    # elif trunk_name == "wcid":
+    #     backbone = WCID()
+    #     high_level_ch = backbone.high_level_ch
+    #     s2_ch = -1
+    #     s4_ch = -1
+    
     else:
         raise 'unknown backbone {}'.format(trunk_name)
 

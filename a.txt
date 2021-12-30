@@ -1,36 +1,46 @@
 python train.py --arch "ocrnet.HRNet_Mscale" \
---lr 5e-4 \
---n_scales "1.0, 1.5, 2.0" \
+python train.py --arch "wcid.wcid" \
+
+/home/s0559816/.conda/envs/test/bin/python train.py --arch "wcid.wcid" \
+
+python train.py --arch ocrnet.HRNet_Mscale \
 --dataset "xxx" \
---crop_size "360,720" \
+--n_scales "0.5, 1.0" \
+--crop_size "720,1440" \
+--class_uniform_tile 720 \
+--lr 5e-4 \
 --bs_trn 1 \
 --optimizer "adam" \
---class_uniform_tile 360 \
+--poly_exp 2 \
 --fp16 \
---result_dir "testrun/newDataset/360x720/railBed-combined--neighbor-single/2" \
---snapshot "testrun/newDataset/360x720/railBed-combined--neighbor-single/1/best_checkpoint_ep30.pth" \
 --gblur \
 --brt_aug \
+--result_dir "testrun/newDataset/1440x720/multirail/railBed-single--neighbor-combined/2" \
+--snapshot "/home/s0559816/Desktop/semantic-segmentation/testrun/newDataset/1440x720/monorail/railBed-combined--neighbor-combined/bg_swap/1/best_checkpoint_ep57.pth" \
+--class_uniform_pct 1 \
 --bg_swap \
---poly_exp 2 \
+--full_crop_training \
+--trunk resnet50 
 
-
+--trunk resnet50 \
 --freeze_trunk 
---bg_swap \
 
+--snapshot "/home/s0559816/Desktop/semantic-segmentation/testrun/newDataset/1440x720/monorail/railBed-combined--neighbor-combined/bg_swap/1/best_checkpoint_ep57.pth"
+--bg_swap \
 
 
 eval
 
-CUDA_VISIBLE_DEVICES=1 python train.py \
+/home/s0559816/.conda/envs/test/bin/python train.py \
 --arch ocrnet.HRNet_Mscale \
 --dataset xxx \
 --n_scales "0.5,1.0,2.0" \
 --fp16 \
---result_dir "results/newDataset/360x720/railBed-combined--neighbor-single/1/" \
---eval_folder "/home/s0559816/Desktop/dataset/assembled-720-360-new/test/" \
---snapshot "testrun/newDataset/360x720/railBed-combined--neighbor-single/1/best_checkpoint_ep30.pth" \
+--result_dir "results/newDataset/1440x720/railBed-combined--neighbor-singe/bg_swap/1/" \
+--eval_folder "/home/s0559816/Desktop/dataset/assembled-1440-720-2/test/" \
+--snapshot "testrun/newDataset/1440x720/railBed-combined--neighbor-singe/bg_swap/1/best_checkpoint_ep19.pth" \
 --bs_val 1 \
 --eval val \
 --dump_assets \
---dump_all_images
+--dump_all_images 
+

@@ -1,0 +1,30 @@
+CMD: "python -m torch.distributed.launch --nproc_per_node=2 train.py"
+# CMD: "python train.py"
+
+HPARAMS: [
+  {
+  #  arch: wcid.wcid,
+   arch: wcid.wcid_se,
+   dataset: xxx,
+   result_dir: LOGDIR,
+   RUNX.TAG: '{arch}',
+   n_scales: "1.0",
+   crop_size: "304,720",
+   class_uniform_tile: 304,
+   class_uniform_pct: 1,
+   full_crop_training: True,
+   lr: 5e-4,
+  #  rmi_loss: true,
+  #  optimizer: "adam",
+   bs_trn: [2, 4, 8, 16],
+   poly_exp: 2,
+  #  supervised_mscale_loss_wt: 0.05,
+   max_epoch: 50,
+   syncbn: true,
+   apex: true,
+  #  fp16: true,
+   gblur: True,
+   brt_aug: True,
+   bg_swap: True,
+  },
+]

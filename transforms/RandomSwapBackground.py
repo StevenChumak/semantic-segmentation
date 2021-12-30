@@ -13,7 +13,7 @@ def swap_background(
     mask,
     background,
     normalized = False,
-    type = "float32",
+    type = "uint8",
 ):
     """
     Blend in random background image.
@@ -57,9 +57,7 @@ def swap_background(
         # TODO: Clean solution for zero division case.
         if (dist_arr.max() - dist_arr.min()) > 0:
             dist_arr = (dist_arr - dist_arr.min()) / (dist_arr.max() - dist_arr.min())
-        else:
-            file_path = pathlib.Path(__file__).resolve()
-            print(f"{file_path}: Dist_arr <= 0!")
+        else:            
             return image
         dist_arr = np.stack([dist_arr] * 3, axis=2)
 

@@ -1,0 +1,37 @@
+# run: conda env create --file environment.yml
+name: nvidia
+channels:
+  - defaults 
+  - pytorch
+dependencies:
+  - python>=3.6
+  - nvidia:cudatoolkit=10.2
+  - anaconda:cudnn
+  - pytorch>=1.9.1
+  - torchvision
+  - torchaudio
+  - conda-forge:tensorboard
+  - pip
+  - pip:
+    - numpy
+    - sklearn
+    - h5py
+    - jupyter
+    - scikit-image
+    - pillow
+    - piexif
+    - cffi
+    - tqdm
+    - dominate
+    - opencv-python
+    - nose
+    - ninja
+    - pyyaml>=5.1.1
+    - coolname>=1.1.0
+    - tabulate>=0.8.3
+    - tensorboardX>=1.6
+    - runx==0.0.6
+
+# pip install --extra-index-url https://developer.download.nvidia.com/compute/redist --upgrade nvidia-dali-cuda102
+# git clone https://github.com/NVIDIA/apex.git apex && cd apex && pip install -v --disable-pip-version-check --no-cache-dir ./ && cd ..
+    

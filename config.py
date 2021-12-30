@@ -78,7 +78,7 @@ __C.DATASET = AttrDict()
 __C.DATASET.RAILSEM19_DIR = "/data/RailSem19/rs19_val/"
 
 __C.DATASET.TRAINRAILS_DIR = \
-     os.path.join(__C.ASSETS_PATH, 'dataset/assembled-1440-720-2/')
+     os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
 
 # __C.DATASET.TRAINRAILS_DIR = \
 #    os.path.join(__C.ASSETS_PATH, 'mono/')

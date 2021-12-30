@@ -12,7 +12,7 @@ import numpy as np
 import transforms
 
 class Loader(BaseLoader):
-    num_classes = 4
+    num_classes = 2
     ignore_label = 255
     trainid_to_name = {}
     color_mapping = []
@@ -28,24 +28,15 @@ class Loader(BaseLoader):
                                      
         self.root = cfg.DATASET.TRAINRAILS_DIR
         self.labels = \
-        { "background": {"id": 0, "trainId": 0},
-          "left_trackbed" : {"id": 48, "trainId": 1},
-          "left_rails" : {"id": 49, "trainId": 1},
-          "ego_trackbed" : {"id": 50, "trainId": 2}, 
-          "ego_rails" : {"id": 51, "trainId": 2},
-          "right_trackbed": {"id": 52, "trainId": 3},
-          "right_rails": {"id": 53, "trainId": 3},
-        # reduced to single digit ints
-        #   "left_trackbed" : {"id": 1, "trainId": 1},
-        #   "left_rails" : {"id": 2, "trainId": 2},
-        #   "ego_trackbed" : {"id": 3, "trainId": 3}, 
-        #   "ego_rails" : {"id": 4, "trainId": 4},
-        #   "right_trackbed": {"id": 5, "trainId": 5},
-        #   "right_rails": {"id": 6, "trainId": 6},
-          # mono folder
-        #   "left_track" : {"id": 1, "trainId": 1},
-        #   "ego_track" : {"id": 2, "trainId": 2}, 
-        #   "right_track": {"id": 3, "trainId": 3},
+        { "background":         {"id": 0, "trainId": 0},
+          "left_trackbed" :     {"id": 48, "trainId": 1},
+          "left_rails" :        {"id": 49, "trainId": 1},
+
+          "ego_trackbed" :      {"id": 50, "trainId": 1}, 
+          "ego_rails" :         {"id": 51, "trainId": 1},
+          
+          "right_trackbed":     {"id": 52, "trainId": 1},
+          "right_rail":         {"id": 53, "trainId": 1},
         }
 
         self.trainid_to_name   = { self.labels[label]["trainId"]   :   label for label in self.labels   }

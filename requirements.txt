@@ -1,8 +1,11 @@
-pyyaml>=5.1.1
-coolname>=1.1.0
-tabulate>=0.8.3
-tensorboardX>=1.4
-runx
+wheel
+torch
+torchvision
+pyyaml
+coolname
+tabulate
+tensorboardX
+runx==0.0.6
 numpy
 sklearn
 h5py
@@ -16,3 +19,6 @@ dominate
 opencv-python
 nose
 ninja
+
+# pip install --extra-index-url https://developer.download.nvidia.com/compute/redist --upgrade nvidia-dali-cuda102
+# git clone https://github.com/NVIDIA/apex.git apex && cd apex && python setup.py install --cuda_ext --cpp_ext && cd ..

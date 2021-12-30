@@ -343,6 +343,7 @@ def main():
     train_loader, val_loader, train_obj = \
         datasets.setup_loaders(args)
     criterion, criterion_val = get_loss(args)
+    # criterion, criterion_val = torch.nn.CrossEntropyLoss(), torch.nn.CrossEntropyLoss()
 
     auto_resume_details = None
     if AutoResume:
@@ -524,7 +525,7 @@ def train(train_loader, net, optim, curr_epoch):
         msg = msg.format(
             curr_epoch, i + 1, len(train_loader), train_main_loss.avg,
             optim.param_groups[-1]['lr'], batchtime)
-        logx.msg(msg)
+        # logx.msg(msg)
 
         metrics = {'loss': train_main_loss.avg,
                    'lr': optim.param_groups[-1]['lr']}
