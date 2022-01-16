@@ -1,0 +1,26 @@
+# Run Evaluation on Cityscapes with a pretrained model
+
+# CMD: "python -m torch.distributed.launch --nproc_per_node=8 train.py"
+CMD: "python train.py"
+
+HPARAMS: [
+  {
+   dataset: xxx,
+   fp16: true,
+   bs_val: 1,
+   eval: val,
+   dump_assets: true,
+   dump_all_images: true,
+   dump_topn: 50,
+   n_scales: "0.5,1.0,2.0",
+   snapshot: "/home/s0559816/Desktop/semantic-segmentation/testrun/newDataset/1440x720/multirail/railBed-combined--neighbor-single/best_checkpoint_ep15.pth",
+   result_dir: "/home/s0559816/Desktop/semantic-segmentation/testrun/newDataset/1440x720/multirail/railBed-combined--neighbor-single/results",
+  #  eval_folder: "/home/s0559816/Desktop/dataset/assembled/assembled-1440-720-new/nearest/",
+  eval_folder: "/home/s0559816/Desktop/railway-segmentation/data/img/val/",
+   arch: ocrnet.HRNet_Mscale,
+  #  arch: wcid.wcid_se_mscale,
+  #  syncbn: true,
+  #  apex: true,
+  },
+]
+# 0-(33)-(12)-(33)

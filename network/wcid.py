@@ -1,8 +1,9 @@
 
-
+import torch
 import torch.nn as nn
 from torch.nn import init
 from torch.nn.modules.conv import ConvTranspose2d
+from runx.logx import logx
 
 from network.utils import old_make_attn_head
 from network.mscale2 import MscaleBase
@@ -190,21 +191,16 @@ class WCID_SE_mscale(MscaleBase):
         se_reduction = 8
 
         self.wcid = WCID_SE_block(num_classes=num_classes, se_reduction=se_reduction)
+                    
         self.high_level_ch = self.wcid.high_level_ch
 
+
         self.scale_attn = old_make_attn_head(
-            in_ch=self.high_level_ch*2, bot_ch=self.high_level_ch//2 ,out_ch=1)
+            in_ch=self.high_level_ch*2, bot_ch=self.high_level_ch//2, out_ch=1)
         
 
     def _fwd(self, x):
-        # x_size = x.size()[2:]
-
         pre_seg_head, final = self.wcid(x)
-
-        # attn = self.scale_attn(pre_seg_head)
-
-        # final = Upsample(final, x_size)
-        # attn = Upsample(attn, x_size)
 
         return final, pre_seg_head
 
@@ -507,14 +503,45 @@ class ChannelSELayer(nn.Module):
         return x * y.expand_as(x)
 
 
+def init_weight(model):
+    model_dict = model.state_dict()
+
+    pretrained_path = "/home/s0559816/Desktop/wcid-pytorch/logs/best_runs/channel_augmented-puma_2022.01.04_05.55/720x304/channel_8/bs_2/nearest/1/best_ego.pth"
+    # Load state_dict
+    torch_ = torch.load(pretrained_path, map_location={'cuda:0': 'cpu'})
+    try:
+        pretrained_dict = torch_["state_dict"]
+    except:
+        pretrained_dict = torch_
+
+    # 1. filter out unnecessary keys
+    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+    # 2. overwrite entries in the existing state dict
+    model_dict.update(pretrained_dict) 
+    # 3. load the new state dict
+    model.load_state_dict(model_dict)
+
+    logx.msg('=> loading pretrained model {}'.format(pretrained_path))
+
+    return model
+
+
 def wcid(num_classes, criterion):
-    return WCID(num_classes=num_classes, criterion=criterion)
+    model = WCID(num_classes=num_classes, criterion=criterion)
+    # model = init_weight(model)
+    return model
 
 def wcid_se(num_classes, criterion):
-    return WCID_SE(num_classes=num_classes, criterion=criterion)
+    model = WCID_SE(num_classes=num_classes, criterion=criterion)  
+    # model = init_weight(model)
+    return model
 
 def wcid_mscale(num_classes, criterion):
-    return WCID_mscale(num_classes=num_classes, criterion=criterion)
+    model = WCID_mscale(num_classes=num_classes, criterion=criterion)
+    # model = init_weight(model)
+    return model
 
 def wcid_se_mscale(num_classes, criterion):
-    return WCID_SE_mscale(num_classes=num_classes, criterion=criterion)
+    model = WCID_SE_mscale(num_classes=num_classes, criterion=criterion)
+    # model = init_weight(model)
+    return model

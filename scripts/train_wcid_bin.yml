@@ -4,7 +4,8 @@ CMD: "python train.py"
 HPARAMS: [
   {
   #  arch: wcid.wcid_se,
-   arch: wcid.wcid_se_mscale,
+   arch: [wcid.wcid_se_mscale,wcid.wcid_se,wcid.wcid_mscale],
+  #  arch: [wcid.wcid_se],
    dataset: xxx,
    result_dir: LOGDIR,
    RUNX.TAG: '{arch}',
@@ -14,7 +15,6 @@ HPARAMS: [
    class_uniform_pct: 1,
    full_crop_training: True,
    lr: 5e-4,
-  #  rmi_loss: true,
    optimizer: "adam",
    amsgrad: true,
    poly_exp: 2,

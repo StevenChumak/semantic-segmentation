@@ -224,7 +224,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
 
         # Run network
         assets, _iou_acc = \
-            run_minibatch(data, net, criterion, val_loss, True, args, val_idx)
+            eval_minibatch(data, net, criterion, val_loss, True, args, val_idx)
 
         # per-class metrics
         input_images, labels, img_names, _ = data
@@ -286,11 +286,11 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
             inputs = {'images': inputs, 'gts': gt_image}
 
             if cfg.MODEL.MSCALE:
-                output, attn_map = net(inputs)
+                output = net(inputs)
             else:
                 output = net(inputs)
-
-        output = torch.nn.functional.softmax(output, dim=1)
+        import torch.nn.functional as F
+        output = F.softmax(output['pred'], dim=1)
         prob_mask, predictions = output.data.max(1)
         predictions = predictions.cpu()
 
@@ -323,6 +323,8 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
 
     html_fn = os.path.join(args.result_dir, 'best_images',
                            'topn_failures.html')
+    if not os.path.exists(html_fn):
+        os.makedirs(os.path.dirname(html_fn),exist_ok=True)
     from utils.results_page import ResultsPage
     ip = ResultsPage('topn failures', html_fn)
     for classid in class_to_images:

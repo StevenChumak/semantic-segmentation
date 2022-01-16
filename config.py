@@ -81,7 +81,12 @@ __C.DATASET.TRAINRAILS_DIR = \
      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
 
 # __C.DATASET.TRAINRAILS_DIR = \
-#    os.path.join(__C.ASSETS_PATH, 'mono/')
+    #  os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-1440-720-new/nearest/')
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/720-304/')
+# __C.DATASET.TRAINRAILS_DIR = \
+#    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/1440-720/')
 
 __C.DATASET.BACKGROUND_DIR = \
      os.path.join(__C.ASSETS_PATH, 'railway-segmentation/data/bgr/')

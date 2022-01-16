@@ -12,7 +12,8 @@ import numpy as np
 import transforms
 
 class Loader(BaseLoader):
-    num_classes = 2
+    # num_classes = 2
+    num_classes = 4
     ignore_label = 255
     trainid_to_name = {}
     color_mapping = []
@@ -28,16 +29,21 @@ class Loader(BaseLoader):
                                      
         self.root = cfg.DATASET.TRAINRAILS_DIR
         self.labels = \
-        { "background":         {"id": 0, "trainId": 0},
-          "left_trackbed" :     {"id": 48, "trainId": 1},
-          "left_rails" :        {"id": 49, "trainId": 1},
+        { 
+        #     "background":         {"id": 0, "trainId": 0},          
+        #     "ego_trackbed":         {"id": 1, "trainId": 1},
+        # }
+          "background":         {"id": 0, "trainId": 0},
+          "left_trackbed" :     {"id": 48, "trainId": 3},
+          "left_rails" :        {"id": 49, "trainId": 3},
 
           "ego_trackbed" :      {"id": 50, "trainId": 1}, 
-          "ego_rails" :         {"id": 51, "trainId": 1},
+          "ego_rails" :         {"id": 51, "trainId": 2},
           
-          "right_trackbed":     {"id": 52, "trainId": 1},
-          "right_rail":         {"id": 53, "trainId": 1},
+          "right_trackbed":     {"id": 52, "trainId": 3},
+          "right_rail":         {"id": 53, "trainId": 3},
         }
+        logx.msg(f"Using following Labeling: {self.labels}")
 
         self.trainid_to_name   = { self.labels[label]["trainId"]   :   label for label in self.labels   }
         self.id_to_trainid   = { self.labels[label]["id"]   :   self.labels[label]["trainId"] for label in self.labels   }
@@ -53,13 +59,14 @@ class Loader(BaseLoader):
         split_name = splits[mode]
         img_ext = 'png'
         mask_ext = 'png'
-
-        if eval_folder:
-            img_root = os.path.join(eval_folder, 'images')
-            mask_root = os.path.join(eval_folder, 'masks')
-        else:
-            img_root = os.path.join(self.root, 'images', split_name)
-            mask_root = os.path.join(self.root, 'masks', split_name)
+        
+        # currently not in use due to not having a test set
+        # if eval_folder:
+        #     img_root = os.path.join(eval_folder, 'images')
+        #     mask_root = os.path.join(eval_folder, 'masks')
+        # else:
+        img_root = os.path.join(self.root, 'images', split_name)
+        mask_root = os.path.join(self.root, 'masks', split_name)
 
         self.all_imgs = self.find_images(img_root, mask_root, img_ext,
                                              mask_ext)
@@ -113,11 +120,15 @@ class Loader(BaseLoader):
         if self.img_transform is not None:
             img = self.img_transform(img)
 
+
         if cfg.DATASET.DUMP_IMAGES:
             self.dump_images(img_name, mask, centroid, class_id, img)
 
         if self.label_transform is not None:
             mask = self.label_transform(mask)
+
+        # print(f"image shape: {img.shape}")
+        # print(f"mask shape: {mask.shape}")
 
         return img, mask, scale_float
 

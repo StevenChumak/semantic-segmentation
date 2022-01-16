@@ -1,24 +1,32 @@
 CMD: "python train.py"
+# CMD: "python -m torch.distributed.launch --nproc_per_node=2 train.py"
 
 HPARAMS: [
   {
    arch: ocrnet.HRNet_Mscale,
    result_dir: LOGDIR,
-   RUNX.TAG: '{arch}',
    dataset: xxx,
    crop_size: "304,720",
-   bs_trn: 1,
-   poly_exp: 2,
+   n_scales: "0.5,1.0",
    lr: 5e-4,
-   n_scales: "0.5,1.0,2.0",
+   bs_trn: 2,
+   poly_exp: 2,
    optimizer: "adam",
+   amsgrad: true,
    class_uniform_tile: 304,
    supervised_mscale_loss_wt: 0.05,
+   weight_decay: 5e-5,
+   max_epoch: 550,
+  #  syncbn: true,
+  #  apex: true,
    fp16: true,
    gblur: True,
    brt_aug: True,
    bg_swap: True,
    full_crop_training: True,
    class_uniform_pct: 1,
+  #  snapshot: "/home/s0559816/Desktop/semantic-segmentation/logs/train_xxx/ocrnet.HRNet_Mscale-304,720-trunk_attractive-firefly_2022.01.08_00.53/best_checkpoint_ep147.pth",
+   trunk: "resnet50",
+   RUNX.TAG: '{arch}-{crop_size}-{trunk}',
   },
 ]

@@ -1,0 +1,24 @@
+# Run Evaluation on Cityscapes with a pretrained model
+
+# CMD: "python -m torch.distributed.launch --nproc_per_node=8 train.py"
+CMD: "python train.py"
+
+HPARAMS: [
+  {
+   dataset: xxx,
+   fp16: true,
+   bs_val: 1,
+   eval: val,
+   dump_assets: true,
+   dump_all_images: true,
+  #  dump_topn: 50,
+  #  n_scales: "0.5,1.0,2.0",
+   snapshot: "/home/s0559816/Desktop/semantic-segmentation/logs/train_wcid/wcid.wcid_crouching-bug_2021.12.25_20.28/best_checkpoint_ep156.pth",
+   result_dir: "/home/s0559816/Desktop/semantic-segmentation/logs/train_wcid/wcid.wcid_crouching-bug_2021.12.25_20.28/results",
+  #  eval_folder: "/home/s0559816/Desktop/dataset/assembled/assembled-1440-720-new/nearest/",
+  eval_folder: "/home/s0559816/Desktop/dataset/old_dataset/720-304/",
+   arch: wcid.wcid,
+  #  syncbn: true,
+  #  apex: true,
+  },
+]
