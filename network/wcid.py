@@ -1,3 +1,4 @@
+import math
 
 import torch
 import torch.nn as nn
@@ -16,20 +17,31 @@ class WCID_block(nn.Module):
     def __init__(self, num_classes):
         super(WCID_block, self).__init__()
         in_channels=3     
+        self.multiplier = 1
 
+        l1 = [in_channels, 8, 16]
+        l2 = [l1[2], 16, 32, 32]
+        l3 = [l2[3], 64, 64]
+        l4 = [l3[2], 64, 64]
+        l5 = [l4[2], 64, 64]
+        l6 = [l5[2], 64, 64]
+        l7 = [l6[2], 32, 32, 16]
+        l8 = [l7[3], 16, num_classes]
+
+       
         # Convolution
-        self.wcidLayer1 = Down1(in_channels)
-        self.wcidLayer2 = Down2()
-        self.wcidLayer3 = Down3()
-        self.wcidLayer4 = Down4()
+        self.wcidLayer1 = Down1(l1, self.multiplier)
+        self.wcidLayer2 = Down2(l2, self.multiplier)
+        self.wcidLayer3 = Down3(l3, self.multiplier)
+        self.wcidLayer4 = Down4(l4, self.multiplier)
 
-        # Transposed Convolution 
-        self.wcidLayer5 = Up1()
-        self.wcidLayer6 = Up2()
-        self.wcidLayer7 = Up3()
-        self.wcidLayer8 = Up4(num_classes)
+        # Transposed Convolution
+        self.wcidLayer5 = Up1(l5, self.multiplier)
+        self.wcidLayer6 = Up2(l6, self.multiplier)
+        self.wcidLayer7 = Up3(l7, self.multiplier)
+        self.wcidLayer8 = Up4(l8, self.multiplier)
 
-        self.high_level_ch = self.wcidLayer7.out_channels
+        self.high_level_ch = self.wcidLayer8.out_channels
         
     def forward(self, x):
 
@@ -51,34 +63,47 @@ class WCID_SE_block(nn.Module):
         super(WCID_SE_block, self).__init__()
         in_channels=3     
         self.se_reduction = se_reduction
-        # Convolution
-        self.wcidLayer1 = Down1(in_channels)
-        self.wcidLayer2 = Down2()
-        self.wcidLayer3 = Down3()
-        self.wcidLayer4 = Down4()
+        self.multiplier = 1.2
 
-        # Transposed Convolution 
-        self.wcidLayer5 = Up1()
-        self.wcidLayer6 = Up2()
-        self.wcidLayer7 = Up3()
-        self.wcidLayer8 = Up4(num_classes)
+        l1 = [in_channels, 8, 16]
+        l2 = [l1[2], 16, 32, 32]
+        l3 = [l2[3], 64, 64]
+        l4 = [l3[2], 64, 64]
+        l5 = [l4[2], 64, 64]
+        l6 = [l5[2], 64, 64]
+        l7 = [l6[2], 32, 32, 16]
+        l8 = [l7[3], 16, num_classes]
+
+        # Convolution
+        self.wcidLayer1 = Down1(l1, self.multiplier)
+        self.wcidLayer2 = Down2(l2, self.multiplier)
+        self.wcidLayer3 = Down3(l3, self.multiplier)
+        self.wcidLayer4 = Down4(l4, self.multiplier)
+
+        # Transposed Convolution
+        self.wcidLayer5 = Up1(l5, self.multiplier)
+        self.wcidLayer6 = Up2(l6, self.multiplier)
+        self.wcidLayer7 = Up3(l7, self.multiplier)
+        self.wcidLayer8 = Up4(l8, self.multiplier)
         
+        self.high_level_ch = self.wcidLayer7.out_channels
+
         se_layer = {}
 
         # SE wcidLayers
         for i in range(1, 9):
             layerName = f"se_{i}"
             out_channels = self.__getattr__("wcidLayer" + str(i)).out_channels
-            se_layer[layerName] = ChannelSELayer(
-                out_channels, reduction_ratio=self.se_reduction
+            layer = []
+            layer.append(
+                ChannelSELayer(out_channels, reduction_ratio=self.se_reduction)
             )
+
+            se_layer[layerName] = nn.Sequential(*layer)
 
         self.se_layer = nn.ModuleDict(se_layer)
 
-        self.high_level_ch = self.wcidLayer7.out_channels
-        
     def forward(self, x):
-
         x1 = self.wcidLayer1(x)
         x1_se = self.se_layer["se_1"](x1)
 
@@ -99,7 +124,7 @@ class WCID_SE_block(nn.Module):
 
         x7 = self.wcidLayer7(x6_se)
         x7_se = self.se_layer["se_7"](x7)
-
+        
         x8 = self.wcidLayer8(x7_se)
         x8_se = self.se_layer["se_8"](x8)
 
@@ -194,7 +219,6 @@ class WCID_SE_mscale(MscaleBase):
                     
         self.high_level_ch = self.wcid.high_level_ch
 
-
         self.scale_attn = old_make_attn_head(
             in_ch=self.high_level_ch*2, bot_ch=self.high_level_ch//2, out_ch=1)
         
@@ -205,22 +229,27 @@ class WCID_SE_mscale(MscaleBase):
         return final, pre_seg_head
 
 
-class Conv_ReLu(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size):
+class Conv2d_ReLu(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, multiplier, dw=False):
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
 
+        if in_channels != 3:
+            in_channels = math.floor(in_channels ** multiplier)
+        out_channels = math.floor(out_channels ** multiplier)
+
         self.conv1 = nn.Conv2d(
             self.in_channels,
             self.out_channels,
             kernel_size=self.kernel_size,
-            padding="valid",
-            stride=(1, 1),
+            padding=0,
+            stride=1,
+            groups=self.in_channels if dw else 1,
         )
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         x = self.conv1(x)
@@ -229,20 +258,24 @@ class Conv_ReLu(nn.Module):
 
 
 class TransConv_ReLu(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size):
+    def __init__(self, in_channels, out_channels, kernel_size, multiplier, dw=False):
         super().__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
 
+        in_channels = math.floor(in_channels ** multiplier)
+        out_channels = math.floor(out_channels ** multiplier)
+
         self.conv1 = ConvTranspose2d(
             self.in_channels,
             self.out_channels,
             kernel_size=self.kernel_size,
-            stride=(1, 1),
+            stride=1,
+            groups=self.in_channels if dw else 1,
         )
-        self.relu = nn.ReLU(inplace=True)
+        self.relu = nn.ReLU()
 
     def forward(self, x):
         x = self.conv1(x)
@@ -251,12 +284,12 @@ class TransConv_ReLu(nn.Module):
 
 
 class Down1(nn.Module):
-    def __init__(self, in_channels):
+    def __init__(self, l, multiplier):
         super().__init__()
-        self.batchNorm = nn.BatchNorm2d(in_channels)
+        self.batchNorm = nn.BatchNorm2d(l[0])
 
-        self.conv1 = Conv_ReLu(in_channels, 8, kernel_size=(3, 3))
-        self.conv2 = Conv_ReLu(8, 16, kernel_size=(3, 3))
+        self.conv1 = Conv2d_ReLu(l[0], l[1], kernel_size=3, multiplier=multiplier)
+        self.conv2 = Conv2d_ReLu(l[1], l[2], kernel_size=3, multiplier=multiplier)
 
         self.maxPool = nn.MaxPool2d(kernel_size=(2, 2))
 
@@ -274,13 +307,13 @@ class Down1(nn.Module):
 
 
 class Down2(nn.Module):
-    def __init__(self):
+    def __init__(self, l, multiplier):
         super().__init__()
-        self.conv1 = Conv_ReLu(16, 16, kernel_size=(5, 5))
+        self.conv1 = Conv2d_ReLu(l[0], l[1], kernel_size=5, multiplier=multiplier)
         self.drop1 = nn.Dropout2d(0.2)
-        self.conv2 = Conv_ReLu(16, 32, kernel_size=(3, 3))
+        self.conv2 = Conv2d_ReLu(l[1], l[2], kernel_size=3, multiplier=multiplier)
         self.drop2 = nn.Dropout2d(0.2)
-        self.conv3 = Conv_ReLu(32, 32, kernel_size=(5, 5))
+        self.conv3 = Conv2d_ReLu(l[2], l[3], kernel_size=5, multiplier=multiplier)
 
         self.maxpol = nn.MaxPool2d(kernel_size=(2, 2))
 
@@ -299,37 +332,13 @@ class Down2(nn.Module):
 
 
 class Down3(nn.Module):
-    def __init__(self):
+    def __init__(self, l, multiplier):
         super().__init__()
 
-        self.conv1 = Conv_ReLu(32, 64, kernel_size=(3, 3))
+        self.conv1 = Conv2d_ReLu(l[0], l[1], kernel_size=3, multiplier=multiplier)
         self.drop1 = nn.Dropout2d(0.2)
 
-        self.conv2 = Conv_ReLu(64, 64, kernel_size=(5, 5))
-        self.drop2 = nn.Dropout2d(0.2)
-
-        self.maxpool = nn.MaxPool2d(kernel_size=(2, 2))
-
-        self.out_channels = self.conv1.out_channels
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.drop1(x)
-
-        x = self.conv2(x)
-        x = self.drop2(x)
-
-        x = self.maxpool(x)
-
-        return x
-
-
-class Down4(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = Conv_ReLu(64, 64, kernel_size=(3, 3))
-        self.drop1 = nn.Dropout2d(0.2)
-        self.conv2 = Conv_ReLu(64, 64, kernel_size=(5, 5))
+        self.conv2 = Conv2d_ReLu(l[1], l[2], kernel_size=5, multiplier=multiplier)
         self.drop2 = nn.Dropout2d(0.2)
 
         self.maxpool = nn.MaxPool2d(kernel_size=(2, 2))
@@ -348,29 +357,56 @@ class Down4(nn.Module):
         return x
 
 
-class MyUpsample(nn.Module):
-    def __init__(self, scale_factor) -> None:
+class Down4(nn.Module):
+    def __init__(self, l, multiplier, dw=False):
         super().__init__()
-        self.up = nn.Upsample(
-            scale_factor=scale_factor, 
-            mode='nearest', 
-            # align_corners=align_corners
+        self.conv1 = Conv2d_ReLu(
+            l[0], l[1], kernel_size=3, multiplier=multiplier, dw=dw
         )
+        self.drop1 = nn.Dropout2d(0.2)
+        self.conv2 = Conv2d_ReLu(
+            l[1], l[2], kernel_size=5, multiplier=multiplier, dw=dw
+        )
+        self.drop2 = nn.Dropout2d(0.2)
+
+        self.maxpool = nn.MaxPool2d(kernel_size=(2, 2))
+
+        self.out_channels = self.conv2.out_channels
 
     def forward(self, x):
-        x = self.up(x)
+        x = self.conv1(x)
+        x = self.drop1(x)
+
+        x = self.conv2(x)
+        x = self.drop2(x)
+
+        x = self.maxpool(x)
 
         return x
 
 
-class Up1(nn.Module):
+class upsample(nn.Module):
     def __init__(self):
         super().__init__()
-        self.up = MyUpsample(scale_factor=2)
 
-        self.conv1 = TransConv_ReLu(64, 64, kernel_size=(5, 5))
+        self.up = nn.Upsample(scale_factor=2)
+        # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+
+    def forward(self, x):
+        return self.up(x)
+
+
+class Up1(nn.Module):
+    def __init__(self, l, multiplier, dw=False):
+        super().__init__()
+        self.up = upsample()
+        self.conv1 = TransConv_ReLu(
+            l[0], l[1], kernel_size=5, multiplier=multiplier, dw=dw
+        )
         self.drop1 = nn.Dropout2d(0.2)
-        self.conv2 = TransConv_ReLu(64, 64, kernel_size=(3, 3))
+        self.conv2 = TransConv_ReLu(
+            l[1], l[2], kernel_size=3, multiplier=multiplier, dw=dw
+        )
         self.drop2 = nn.Dropout2d(0.2)
 
         self.out_channels = self.conv2.out_channels
@@ -386,14 +422,13 @@ class Up1(nn.Module):
 
 
 class Up2(nn.Module):
-    def __init__(self):
+    def __init__(self, l, multiplier):
         super().__init__()
-        self.up = MyUpsample(scale_factor=2)
-
-        self.conv1 = TransConv_ReLu(64, 64, kernel_size=(5, 5))
+        self.up = upsample()
+        self.conv1 = TransConv_ReLu(l[0], l[1], kernel_size=5, multiplier=multiplier)
         self.drop1 = nn.Dropout2d(0.2)
 
-        self.conv2 = TransConv_ReLu(64, 64, kernel_size=(3, 3))
+        self.conv2 = TransConv_ReLu(l[1], l[2], kernel_size=3, multiplier=multiplier)
         self.drop2 = nn.Dropout2d(0.2)
 
         self.out_channels = self.conv2.out_channels
@@ -411,15 +446,15 @@ class Up2(nn.Module):
 
 
 class Up3(nn.Module):
-    def __init__(self):
+    def __init__(self, l, multiplier):
         super().__init__()
-        self.up = MyUpsample(scale_factor=2)
+        self.up = upsample()
 
-        self.conv1 = TransConv_ReLu(64, 32, kernel_size=(5, 5))
+        self.conv1 = TransConv_ReLu(l[0], l[1], kernel_size=5, multiplier=multiplier)
         self.drop1 = nn.Dropout2d(0.2)
-        self.conv2 = TransConv_ReLu(32, 32, kernel_size=(3, 3))
+        self.conv2 = TransConv_ReLu(l[1], l[2], kernel_size=3, multiplier=multiplier)
         self.drop2 = nn.Dropout2d(0.2)
-        self.conv3 = TransConv_ReLu(32, 16, kernel_size=(5, 5))
+        self.conv3 = TransConv_ReLu(l[2], l[3], kernel_size=5, multiplier=multiplier)
         self.drop3 = nn.Dropout2d(0.2)
 
         self.out_channels = self.conv3.out_channels
@@ -440,22 +475,22 @@ class Up3(nn.Module):
 
 
 class Up4(nn.Module):
-    def __init__(self, n_classes):
+    def __init__(self, l, multiplier):
         super().__init__()
-        self.up = MyUpsample(scale_factor=2)
+        self.up = upsample()
 
-        self.conv1 = TransConv_ReLu(16, 16, kernel_size=(3, 3))
-        self.conv2 = ConvTranspose2d(16, n_classes, kernel_size=(3, 3), stride=(1, 1))
+        self.conv1 = TransConv_ReLu(l[0], l[1], kernel_size=3, multiplier=multiplier)
+        self.conv2 = ConvTranspose2d(l[1], l[2], kernel_size=3, stride=(1, 1))
 
         self.out_channels = self.conv2.out_channels
 
     def forward(self, x):
         x = self.up(x)
+
         x = self.conv1(x)
         x = self.conv2(x)
 
         return x
-
 
 class ChannelSELayer(nn.Module):
     # original source: https://github.com/xmu-xiaoma666/External-Attention-pytorch/blob/master/model/attention/SEAttention.py

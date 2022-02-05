@@ -75,7 +75,12 @@ __C.TRAIN.FP16 = False
 #Attribute Dictionary for Dataset
 __C.DATASET = AttrDict()
 
-__C.DATASET.RAILSEM19_DIR = "/data/RailSem19/rs19_val/"
+__C.DATASET.RAILSEM19_DIR = \
+     os.path.join(__C.ASSETS_PATH, "dataset/assembled/railsem19-720-304/nearest/")
+
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-320-160-new/nearest/')
 
 __C.DATASET.TRAINRAILS_DIR = \
      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
@@ -84,7 +89,11 @@ __C.DATASET.TRAINRAILS_DIR = \
     #  os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-1440-720-new/nearest/')
 
 # __C.DATASET.TRAINRAILS_DIR = \
+#    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/160-320/')
+
+# __C.DATASET.TRAINRAILS_DIR = \
 #    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/720-304/')
+
 # __C.DATASET.TRAINRAILS_DIR = \
 #    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/1440-720/')
 
@@ -120,7 +129,7 @@ __C.DATASET.NUM_CLASSES = 0
 __C.DATASET.IGNORE_LABEL = 255
 __C.DATASET.DUMP_IMAGES = False
 __C.DATASET.CLASS_UNIFORM_PCT = 0.5
-__C.DATASET.CLASS_UNIFORM_TILE = 720
+__C.DATASET.CLASS_UNIFORM_TILE = 1024
 __C.DATASET.COARSE_BOOST_CLASSES = None
 __C.DATASET.CV = 0
 __C.DATASET.COLORIZE_MASK_FN = None

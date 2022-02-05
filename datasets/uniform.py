@@ -96,8 +96,8 @@ def class_centroids_image(item, tile_size, num_classes, id2trainid):
     image_size = mask.shape
     tile_locations = calc_tile_locations(tile_size, image_size)
 
-    drop_mask = np.zeros((1024,2048))
-    drop_mask[15:840, 14:2030] = 1.0
+    # drop_mask = np.zeros((1024,2048))
+    # drop_mask[15:840, 14:2030] = 1.0
 
 
     #####
@@ -189,7 +189,7 @@ def unpooled_class_centroids_all(items, num_classes, id2trainid,
 def class_centroids_all(items, num_classes, id2trainid, tile_size=cfg.DATASET.CLASS_UNIFORM_TILE):
     """
     intermediate function to call pooled_class_centroid
-    """
+    # """
     pooled_centroids = pooled_class_centroids_all(items, num_classes,
                                                   id2trainid, tile_size)
     # pooled_centroids = unpooled_class_centroids_all(items, num_classes,
