@@ -8,7 +8,7 @@ HPARAMS: [
    dataset: xxx,
   #  dataset: railsem19,
    result_dir: LOGDIR,
-   RUNX.TAG: '{dataset}/down3,4-5,5Iup1,2-5,5',
+   RUNX.TAG: '{dataset}/down4-5,5Iup1-5,5',
    n_scales: "0.5,1.0",
   #  crop_size: "160,320",
   #  class_uniform_tile: 160,
