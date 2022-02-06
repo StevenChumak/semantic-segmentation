@@ -35,12 +35,12 @@ class TestNet_block(nn.Module):
         # Convolution
         self.down1 = Down(l1, [3,3], self.se_reduction, dw=False, drop=False)
         self.down2 = Down(l2, [5,3], self.se_reduction, dw=False)
-        self.down3 = Down(l3, [5,3], self.se_reduction, dw=True)
-        self.down4 = Down(l4, [5,3], self.se_reduction, dw=True)
+        self.down3 = Down(l3, [5,5], self.se_reduction, dw=True)
+        self.down4 = Down(l4, [5,5], self.se_reduction, dw=True)
 
         # Transposed Convolution
-        self.up1 = Up(l5, [3,5], self.se_reduction, dw=False)
-        self.up2 = Up(l6, [3,5], self.se_reduction, dw=False)
+        self.up1 = Up(l5, [5,5], self.se_reduction, dw=False)
+        self.up2 = Up(l6, [5,5], self.se_reduction, dw=False)
         self.up3 = Up(l7, [3,5], self.se_reduction, dw=False)
         self.up4 = Up(l8, [3,3], self.se_reduction, dw=False, drop=False)
 

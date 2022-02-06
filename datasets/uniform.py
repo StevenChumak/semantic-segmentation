@@ -189,7 +189,7 @@ def unpooled_class_centroids_all(items, num_classes, id2trainid,
 def class_centroids_all(items, num_classes, id2trainid, tile_size=cfg.DATASET.CLASS_UNIFORM_TILE):
     """
     intermediate function to call pooled_class_centroid
-    # """
+    """
     pooled_centroids = pooled_class_centroids_all(items, num_classes,
                                                   id2trainid, tile_size)
     # pooled_centroids = unpooled_class_centroids_all(items, num_classes,

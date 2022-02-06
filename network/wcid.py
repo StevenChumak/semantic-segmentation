@@ -63,16 +63,25 @@ class WCID_SE_block(nn.Module):
         super(WCID_SE_block, self).__init__()
         in_channels=3     
         self.se_reduction = se_reduction
-        self.multiplier = 1.2
+        self.multiplier = 1
 
-        l1 = [in_channels, 8, 16]
-        l2 = [l1[2], 16, 32, 32]
-        l3 = [l2[3], 64, 64]
-        l4 = [l3[2], 64, 64]
-        l5 = [l4[2], 64, 64]
-        l6 = [l5[2], 64, 64]
-        l7 = [l6[2], 32, 32, 16]
-        l8 = [l7[3], 16, num_classes]
+        # l1 = [in_channels, 8, 16]
+        # l2 = [l1[2], 16, 32, 32]
+        # l3 = [l2[3], 64, 64]
+        # l4 = [l3[2], 64, 64]
+        # l5 = [l4[2], 64, 64]
+        # l6 = [l5[2], 64, 64]
+        # l7 = [l6[2], 32, 32, 16]
+        # l8 = [l7[3], 16, num_classes]
+        l1 = [in_channels, 16, 32]
+        l2 = [l1[-1], 32, 64]
+        l3 = [l2[-1], 128, 128]
+        l4 = [l3[-1], 128, 128]
+
+        l5 = [l4[-1]+l4[-1], 128, 128]
+        l6 = [l5[-1]+l3[-1], 128, 128]
+        l7 = [l6[-1]+l2[-1], 64, 32]
+        l8 = [l7[-1]+l1[-1], 16, num_classes]
 
         # Convolution
         self.wcidLayer1 = Down1(l1, self.multiplier)

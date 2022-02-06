@@ -1,7 +1,9 @@
 
-
+import torch
 import torch.nn as nn
 from torch.nn.modules.conv import ConvTranspose2d
+import torch.nn.functional as F
+
 
 from network.utils import old_make_attn_head
 from network.mscale2 import MscaleBase
@@ -20,31 +22,27 @@ class TestNet_block(nn.Module):
         self.se_reduction = se_reduction # TODO: add to cfg?
 
         # changed values to be closer to previous 1,2 exp of previous values but which yield a whole number when divided by 8 (se_reduction ration)
-
         l1 = [self.in_channels, 16, 32]
         l2 = [l1[-1], 32, 64]
         l3 = [l2[-1], 128, 128]
         l4 = [l3[-1], 128, 128]
 
-        l5 = [l4[-1], 128, 128]
-        l6 = [l5[-1], 128, 128]
-        l7 = [l6[-1], 64, 32]
-        # l8 = [l7[-1], 32, 16]
-        l8 = [l7[-1], 16, n_classes]
+        l5 = [l4[-1]+l4[-1], 128, 128]
+        l6 = [l5[-1]+l3[-1], 128, 128]
+        l7 = [l6[-1]+l2[-1], 64, 32]
+        l8 = [l7[-1]+l1[-1], 16, n_classes]
 
         # Convolution
-        self.down1 = Down(l1, [3,3], self.se_reduction, drop=False)
-        self.down2 = Down(l2, [5,3],self.se_reduction, drop=False)
-        self.down3 = Down(l3, [5,3],self.se_reduction, drop=False)
-        self.down4 = Down(l4, [5,3],self.se_reduction, drop=False)
+        self.down1 = Down(l1, [3,3], self.se_reduction, dw=False, drop=False)
+        self.down2 = Down(l2, [5,3], self.se_reduction, dw=False)
+        self.down3 = Down(l3, [5,3], self.se_reduction, dw=True)
+        self.down4 = Down(l4, [5,3], self.se_reduction, dw=True)
 
         # Transposed Convolution
-        self.up1 = Up(l5, [3,5],self.se_reduction, drop=False)
-        self.up2 = Up(l6, [3,5],self.se_reduction, drop=False)
-        self.up3 = Up(l7, [3,5],self.se_reduction, drop=False)
-        self.up4 = Up(l8, [3,3],self.se_reduction, drop=False)
-
-        # self.output = nn.Conv2d(l8[-1], n_classes, 1)
+        self.up1 = Up(l5, [3,5], self.se_reduction, dw=False)
+        self.up2 = Up(l6, [3,5], self.se_reduction, dw=False)
+        self.up3 = Up(l7, [3,5], self.se_reduction, dw=False)
+        self.up4 = Up(l8, [3,3], self.se_reduction, dw=False, drop=False)
 
         self.second_out_ch = self.down1.out_channels
 
@@ -65,18 +63,17 @@ class TestNet_block(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        x1 = self.down1(x)
-        x2 = self.down2(x1)
-        x3 = self.down3(x2)
-        x4 = self.down4(x3)
+        x1, x11 = self.down1(x)
+        x2, x22 = self.down2(x1)
+        x3, x33 = self.down3(x2)
+        x4, x44 = self.down4(x3)
 
-        x5 = self.up1(x4)
-        x6 = self.up2(x5)
-        x7 = self.up3(x6)
-        x8 = self.up4(x7)
-        # x8 = self.output(x8)
+        x5 = self.up1(x4, x44)
+        x6 = self.up2(x5, x33)
+        x7 = self.up3(x6, x22)
+        x8 = self.up4(x7, x11)
 
-        return x1, x8
+        return x7, x8
         # TODO: why did I return x7 with WCID-Net? Does x1 work?
 
 class TestNet(nn.Module):
@@ -131,95 +128,46 @@ class TestNet_mscale(MscaleBase):
             return final, second_out
 
 
-class Conv2d_ReLu(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-
-        self.conv1 = nn.Conv2d(
-            self.in_channels,
-            self.out_channels,
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            padding=self.padding,
-        )
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        return x
-
-
-class TransConv_ReLu(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-
-        self.conv1 = ConvTranspose2d(
-            self.in_channels,
-            self.out_channels,
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            padding=self.padding,
-        )
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu(x)
-        return x
-
-
 class double_Conv(nn.Module):
-    def __init__(self, l, k, se_reduction, drop=True):
+    def __init__(self, l, k, se_reduction, dw=False, drop=False):
         super().__init__()
-        self.layer = nn.Sequential()
+        self.layer = nn.Sequential()        
+        if dw:
+            l[1] = l[1]*2
 
-        # self.layer.add_module("conv1", Conv2d_ReLu(l[0], l[1], kernel_size=3, stride=1, padding=1))
-        # # if drop:
-        #     # self.layer.add_module("drop1", nn.Dropout(0.2))
-        # self.layer.add_module("bn1", nn.BatchNorm2d(l[1]))
-
-        # self.layer.add_module("conv2", Conv2d_ReLu(l[1], l[2], kernel_size=3, stride=1, padding=1))
-        # self.layer.add_module("se", ChannelSELayer(l[2], reduction_ratio=se_reduction))
-        # if drop:
-        #     self.layer.add_module("drop2", nn.Dropout(0.2))
-        # self.layer.add_module("bn2", nn.BatchNorm2d(l[2]))
-           
-
-        self.layer.add_module("conv1", Conv2d_ReLu(l[0], l[1], kernel_size=k[0], stride=1, padding=(k[0]//2)))
+        self.layer.add_module("conv1", nn.Conv2d(l[0], l[1], kernel_size=k[0], stride=1, padding=k[0]//2, groups=l[0] if dw else 1))
         self.layer.add_module("bn1", nn.BatchNorm2d(l[1]))
+        if  dw:
+            self.layer.add_module("conv1x1", nn.Conv2d(l[1], l[1]//2, kernel_size=1, stride=1, padding=0))
+            self.layer.add_module("bn1x1", nn.BatchNorm2d(l[1]//2))
 
-        self.layer.add_module("conv2", Conv2d_ReLu(l[1], l[2], kernel_size=k[1], stride=1, padding=k[1]//2))
-        self.layer.add_module("se", ChannelSELayer(l[2], reduction_ratio=se_reduction))
-        self.layer.add_module("drop2", nn.Dropout(0.2))
+        self.layer.add_module("relu1", nn.ReLU())
+        if dw:
+            l[1] = l[1]//2
+            l[2] = l[2]*2
+
+        self.layer.add_module("conv2", nn.Conv2d(l[1], l[2], kernel_size=k[1], stride=1, padding=k[1]//2, groups=l[1] if dw else 1))
         self.layer.add_module("bn2", nn.BatchNorm2d(l[2]))
+        if  dw:
+            self.layer.add_module("conv2x1", nn.Conv2d(l[2], l[2]//2, kernel_size=1, stride=1, padding=0))
+            self.layer.add_module("bn2x1", nn.BatchNorm2d(l[2]//2))
+
+        self.layer.add_module("relu2", nn.ReLU())
+        if dw:
+            l[2] = l[2]//2
+
+        self.layer.add_module("se", ChannelSELayer(l[2], reduction_ratio=se_reduction))
+        if drop:
+            self.layer.add_module("drop2", nn.Dropout(0.2))
 
     def forward(self, x):
         return self.layer(x)
 
 
 class Down(nn.Module):
-    def __init__(self, l, k, se_reduction, drop=True):
+    def __init__(self, l, k, se_reduction, dw=False, drop=True):
         super().__init__()
-        # l[2] = l[2] * 2
-        self.dConv = double_Conv(l, k, se_reduction, drop=drop)
-
-        # self.se = ChannelSELayer(l[2], reduction_ratio=se_reduction)
-        # self.conv3 = Conv2d_ReLu(l[2], l[2]//2, kernel_size=1, stride=1, padding=0)
-        # self.drop3 = nn.Dropout(0.2)
-
+        self.dConv = double_Conv(l, k, se_reduction, dw=dw)
         self.maxPool = nn.MaxPool2d(kernel_size=(2, 2))
 
         self.out_channels = l[2]
@@ -227,14 +175,9 @@ class Down(nn.Module):
     def forward(self, x):
 
         x = self.dConv(x)
+        x_small = self.maxPool(x)
 
-        # x = self.se(x)
-        # x = self.conv3(x)
-        # x = self.drop3(x)
-
-        x = self.maxPool(x)
-
-        return x
+        return x_small, x
 
 
 class upsample(nn.Module):
@@ -248,16 +191,30 @@ class upsample(nn.Module):
 
 
 class Up(nn.Module):
-    def __init__(self, l, k, se_reduction, drop=True):
+    def __init__(self, l, k, se_reduction, dw=False, drop=True):
         super().__init__()
 
         self.up = upsample()
-        self.dConv  = double_Conv(l, k, se_reduction, drop=drop)
+
+        self.dConv  = double_Conv(l, k, se_reduction, dw=dw)
 
         self.out_channels = l[2]
 
-    def forward(self, x):
-        x = self.up(x)
+    def forward(self, x1, x2):
+        x1 = self.up(x1)
+
+        #from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_parts.py
+        diffY = x2.size()[2] - x1.size()[2]
+        diffX = x2.size()[3] - x1.size()[3]
+
+        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
+                        diffY // 2, diffY - diffY // 2])
+        # if you have padding issues, see
+        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+        
+
+        x = torch.cat([x2, x1], dim=1)
         x = self.dConv(x)
 
         return x
@@ -286,7 +243,7 @@ def _make_divisible(v, divisor, min_value=None):
 
 class ChannelSELayer(nn.Module):
     # original source: https://github.com/xmu-xiaoma666/External-Attention-pytorch/blob/master/model/attention/SEAttention.py
-    # some changes were made by me
+    # some changes were made by Steven Chumak
     # paper: https://arxiv.org/abs/1709.01507
 
     def __init__(self, channel, reduction_ratio=8):
