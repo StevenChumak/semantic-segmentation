@@ -1,186 +1,274 @@
-
 import torch
 import torch.nn as nn
-from torch.nn.modules.conv import ConvTranspose2d
 import torch.nn.functional as F
+from runx.logx import logx
+import functools
 
+class Attention_block(nn.Module):
+    # source: https://github.com/LeeJunHyun/Image_Segmentation/blob/master/network.py
+    # paper: https://arxiv.org/pdf/1804.03999.pdf
+        
+    def __init__(self,F_g,F_l,F_int):
+        super(Attention_block,self).__init__()
+        self.W_g = nn.Sequential(
+            nn.Conv2d(F_g, F_int, kernel_size=1,stride=1,padding=0,bias=True),
+            nn.BatchNorm2d(F_int)
+            )
+        
+        self.W_x = nn.Sequential(
+            nn.Conv2d(F_l, F_int, kernel_size=1,stride=1,padding=0,bias=True),
+            nn.BatchNorm2d(F_int)
+        )
 
-from network.utils import old_make_attn_head
-from network.mscale2 import MscaleBase
-from config import cfg
+        self.psi = nn.Sequential(
+            nn.Conv2d(F_int, 1, kernel_size=1,stride=1,padding=0,bias=True),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid()
+        )
+        
+        self.relu = nn.ReLU()
+        
+    def forward(self,g,x):
+        g1 = self.W_g(g)
+        x1 = self.W_x(x)
+        psi = self.relu(g1+x1)
+        psi = self.psi(psi)
 
-
+        return x*psi
+    
+    
 class TestNet_block(nn.Module):
     def __init__(
         self,
-        n_classes,
-        se_reduction=8,
+        se_type,
+        se_reduction=16,
     ):
         super(TestNet_block, self).__init__()
 
-        self.in_channels = 3 # expected 3 channel RGB image as input
-        self.se_reduction = se_reduction # TODO: add to cfg?
+        self.in_channels = 3  # expected 3 channel RGB image as input
+        self.se_type = se_type
+        self.se_reduction = se_reduction  # TODO: add to cfg?
 
         # changed values to be closer to previous 1,2 exp of previous values but which yield a whole number when divided by 8 (se_reduction ration)
-        l1 = [self.in_channels, 16, 32]
-        l2 = [l1[-1], 32, 64]
-        l3 = [l2[-1], 128, 128]
-        l4 = [l3[-1], 128, 128]
-
-        l5 = [l4[-1]+l4[-1], 128, 128]
-        l6 = [l5[-1]+l3[-1], 128, 128]
-        l7 = [l6[-1]+l2[-1], 64, 32]
-        l8 = [l7[-1]+l1[-1], 16, n_classes]
+        d1 = [self.in_channels, 8, 16]
+        d2 = [d1[-1], 16, 32]
+        d3 = [d2[-1], 64, 64]
+        d4 = [d3[-1], 64, 64]
+        d5 = [d4[-1], 128, 128]
+        
+        neck = [d5[-1], 256, d5[-1]]
+        
+        u1 = [d5[-1], d5[-2], d5[-2]]
+        u2 = [u1[-1], d4[-2], d4[-2]]
+        u3 = [u2[-1], d3[-2], d3[-2]]
+        u4 = [u3[-1], d2[-2], d2[-2]]
+        u5 = [u4[-1], d1[-2], d1[-2]]
 
         # Convolution
-        self.down1 = Down(l1, [3,3], self.se_reduction, dw=False, drop=False)
-        self.down2 = Down(l2, [5,3], self.se_reduction, dw=False)
-        self.down3 = Down(l3, [5,3], self.se_reduction, dw=True)
-        self.down4 = Down(l4, [5,3], self.se_reduction, dw=True)
-
-        # Transposed Convolution
-        self.up1 = Up(l5, [3,5], self.se_reduction, dw=False)
-        self.up2 = Up(l6, [3,5], self.se_reduction, dw=False)
-        self.up3 = Up(l7, [3,5], self.se_reduction, dw=False)
-        self.up4 = Up(l8, [3,3], self.se_reduction, dw=False, drop=False)
-
-        self.second_out_ch = self.down1.out_channels
-
-        self.init_weights()
+        self.down1 = Down(d1, [3, 3], self.se_type, self.se_reduction, dw=False)
+        self.down2 = Down(d2, [5, 3], self.se_type, self.se_reduction, dw=False)
+        self.down3 = Down(d3, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
+        self.down4 = Down(d4, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
+        self.down5 = Down(d5, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
         
-    def init_weights(self):
+        self.bneck = BNeck(neck, [3, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
+
+        self.up1 = Up(u1, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down5.out_channels)
+        self.up2 = Up(u2, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down4.out_channels)
+        self.up3 = Up(u3, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down3.out_channels)
+        self.up4 = Up(u4, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down2.out_channels)
+        self.up5 = Up(u5, [3, 3], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down1.out_channels)
+
+
+        self.second_out_channels = self.up4.out_channels
+        self.out_channels = self.up5.out_channels
+
+        self._init_weights()
+        
+    def forward(self, x):
+        d1, d1_b = self.down1(x)
+        d2, d2_b = self.down2(d1)
+        d3, d3_b = self.down3(d2)
+        d4, d4_b = self.down4(d3)
+        d5, d5_b = self.down5(d4)
+        
+        d5 = self.bneck(d5)
+
+        u1 = self.up1(d5, d5_b)
+        u2 = self.up2(u1, d4_b)
+        u3 = self.up3(u2, d3_b)
+        u4 = self.up4(u3, d2_b)
+        u5 = self.up5(u4, d1_b)
+
+
+        return u4, u5
+    
+    def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.constant_(m.bias.data, 0)
             elif isinstance(m, nn.ConvTranspose2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        x1, x11 = self.down1(x)
-        x2, x22 = self.down2(x1)
-        x3, x33 = self.down3(x2)
-        x4, x44 = self.down4(x3)
-
-        x5 = self.up1(x4, x44)
-        x6 = self.up2(x5, x33)
-        x7 = self.up3(x6, x22)
-        x8 = self.up4(x7, x11)
-
-        return x7, x8
-        # TODO: why did I return x7 with WCID-Net? Does x1 work?
+    
 
 class TestNet(nn.Module):
     def __init__(
         self,
         n_classes,
+        se_type="channel",
+        se_reduction=16,
         criterion=None,
+        bin=False,
     ):
         super(TestNet, self).__init__()
-
+        self.bin = bin
         self.criterion = criterion
-        self.se_reduction = 8 # TODO: add to cfg?
+        self.se_type = se_type
+        self.se_reduction = se_reduction
 
-        self.testNet = TestNet_block(n_classes, self.se_reduction)
+        ####################################################################################
+        self.testNet = TestNet_block(self.se_type, self.se_reduction)
+        
+        self.second_out_channels = self.testNet.second_out_channels
+        self.high_level_ch = self.testNet.out_channels
 
-        self.second_out_ch = self.testNet.second_out_ch
+        # self.out = nn.Conv2d(self.high_level_ch, n_classes, 1, stride=1, padding=0)
+
+    def forward(self, x_in):
+
+        _, out = self.testNet(x_in)       
+        # prediction = self.out(out)          
+        
+        return None, None, out
+ 
     
-
-    def forward(self, inputs):
-        x = inputs['images']
-
-        _, prediction = self.testNet(x)
-        output_dict = {}
-        
-        if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
-            loss = self.criterion(prediction, gts)
-            return loss
-        else:
-            output_dict['pred'] = prediction
-            return output_dict
-
-
-class TestNet_mscale(MscaleBase):
-    def __init__(self, n_classes, criterion=None):
-        super(TestNet_mscale, self).__init__()
-        
-        self.criterion = criterion
-        self.se_reduction = 8 # TODO: add to cfg?
-
-        self.testNet = TestNet_block(n_classes, self.se_reduction)
-
-        self.second_out_ch = self.testNet.second_out_ch
-
-        self.scale_attn = old_make_attn_head(
-            in_ch=self.second_out_ch*2, bot_ch=self.second_out_ch//2, out_ch=1)
-
-    def _fwd(self, x):
-            second_out, final = self.testNet(x)
-
-            return final, second_out
-
-
-class double_Conv(nn.Module):
-    def __init__(self, l, k, se_reduction, dw=False, drop=False):
+class DWConv(nn.Module):
+    def __init__(self, fm_in, fm_out, kernel):
         super().__init__()
-        self.layer = nn.Sequential()        
+        self.layer = nn.Sequential()  
+        self.layer.add_module(
+            "convDW",
+            nn.Conv2d(
+                fm_in,
+                fm_in,
+                kernel_size=kernel,
+                stride=1,
+                padding=kernel// 2,
+                groups=fm_in,
+            ),
+        )
+        self.layer.add_module(
+            "conv1x1", nn.Conv2d(fm_in, fm_out, kernel_size=1, stride=1, padding=0)
+        )
+        self.layer.add_module("bnDW", nn.BatchNorm2d(fm_out))
+        self.layer.add_module("reluDW", nn.ReLU())
+        
+    def forward(self, x):
+        return self.layer(x)
+        
+
+class ConvBlock(nn.Module):
+    def __init__(self, fm_in, fm_out, multiplier, kernel, reduce=False, dw=False):
+        super().__init__()
+        self.layer = nn.Sequential()  
+        
+        if reduce:
+            mid = fm_in//multiplier
+            
+            self.layer.add_module(
+                "convReduce", nn.Conv2d(fm_in, mid, kernel_size=1, stride=1, padding=0)
+            )
+        else:
+            mid=fm_in
+
         if dw:
-            l[1] = l[1]*2
-
-        self.layer.add_module("conv1", nn.Conv2d(l[0], l[1], kernel_size=k[0], stride=1, padding=k[0]//2, groups=l[0] if dw else 1))
-        self.layer.add_module("bn1", nn.BatchNorm2d(l[1]))
-        if  dw:
-            self.layer.add_module("conv1x1", nn.Conv2d(l[1], l[1]//2, kernel_size=1, stride=1, padding=0))
-            self.layer.add_module("bn1x1", nn.BatchNorm2d(l[1]//2))
-
-        self.layer.add_module("relu1", nn.ReLU())
-        if dw:
-            l[1] = l[1]//2
-            l[2] = l[2]*2
-
-        self.layer.add_module("conv2", nn.Conv2d(l[1], l[2], kernel_size=k[1], stride=1, padding=k[1]//2, groups=l[1] if dw else 1))
-        self.layer.add_module("bn2", nn.BatchNorm2d(l[2]))
-        if  dw:
-            self.layer.add_module("conv2x1", nn.Conv2d(l[2], l[2]//2, kernel_size=1, stride=1, padding=0))
-            self.layer.add_module("bn2x1", nn.BatchNorm2d(l[2]//2))
-
-        self.layer.add_module("relu2", nn.ReLU())
-        if dw:
-            l[2] = l[2]//2
-
-        self.layer.add_module("se", ChannelSELayer(l[2], reduction_ratio=se_reduction))
-        if drop:
-            self.layer.add_module("drop2", nn.Dropout(0.2))
+            self.layer.add_module("convDW", DWConv(fm_in=mid, fm_out=fm_out, kernel=kernel))
+        
+        else:
+            self.layer.add_module(
+                "conv",
+                nn.Conv2d(
+                    mid,
+                    fm_out,
+                    kernel_size=kernel,
+                    stride=1,
+                    padding=kernel// 2,
+                    groups=1,
+                ),
+            )
+            self.layer.add_module("bn", nn.BatchNorm2d(fm_out))
+            self.layer.add_module("relu", nn.ReLU())
+            
 
     def forward(self, x):
         return self.layer(x)
 
 
-class Down(nn.Module):
-    def __init__(self, l, k, se_reduction, dw=False, drop=True):
+class NConv(nn.Module):
+    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
         super().__init__()
-        self.dConv = double_Conv(l, k, se_reduction, dw=dw)
-        self.maxPool = nn.MaxPool2d(kernel_size=(2, 2))
+        self.layer = nn.Sequential()
+        
+        self.residual = fm_list[0] == fm_list[-1]
 
-        self.out_channels = l[2]
+        for i in range(0, len(kernel_list)):
+            self.layer.add_module(f"conv_block{i}", ConvBlock(fm_list[i], fm_list[i+1], multiplier=2, kernel=kernel_list[i], reduce=reduce, dw=dw,))
+            
+        if se_type == 'channel':
+            self.layer.add_module("se", ChannelSELayer(fm_list[-1], reduction_ratio=se_reduction))
+        elif se_type == 'cbam':
+            self.layer.add_module("se", CBAM(fm_list[-1], reduction_ratio=se_reduction))
+        else:
+            logx.msg(f"{se_type} is not supported")
+
+    def forward(self, x):
+        x_out = self.layer(x)
+        
+        if self.residual:
+            x_out += x
+        
+        return x_out
+
+
+class Down(nn.Module):
+    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
+        super().__init__()
+        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
+        self.maxPool = nn.MaxPool2d(kernel_size=2)
+        
+        self.out_channels = fm_list[-1]
 
     def forward(self, x):
 
-        x = self.dConv(x)
+        x = self.nConv(x)
         x_small = self.maxPool(x)
 
         return x_small, x
 
 
-class upsample(nn.Module):
+class BNeck(nn.Module):
+    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
+        super().__init__()
+        
+        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
+        
+        self.out_channels = fm_list[-1]
+
+    def forward(self, x):
+
+        x = self.nConv(x)
+
+        return x
+
+
+class Upsample(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -191,31 +279,36 @@ class upsample(nn.Module):
 
 
 class Up(nn.Module):
-    def __init__(self, l, k, se_reduction, dw=False, drop=True):
+    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False, UNet=0,):
         super().__init__()
 
-        self.up = upsample()
-
-        self.dConv  = double_Conv(l, k, se_reduction, dw=dw)
-
-        self.out_channels = l[2]
-
-    def forward(self, x1, x2):
-        x1 = self.up(x1)
-
-        #from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_parts.py
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
-
-        x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2])
-        # if you have padding issues, see
-        # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
-        # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+        self.up = Upsample()
+        self.UNet=UNet
         
+        if self.UNet>0:
+            self.attention= Attention_block(fm_list[0], self.UNet, (fm_list[0] + self.UNet)//4)
+            fm_list[0] = fm_list[0] + self.UNet
+        
+        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
 
-        x = torch.cat([x2, x1], dim=1)
-        x = self.dConv(x)
+        self.out_channels = fm_list[2]
+
+    def forward(self, small, big):
+
+        x1 = self.up(small)
+        if self.UNet>0:
+            # from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_parts.py
+            diffY = big.size()[2] - x1.size()[2]
+            diffX = big.size()[3] - x1.size()[3]
+
+            x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+            # if you have padding issues, see
+            # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
+            # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
+
+            attention = self.attention(g=x1, x=big)
+            x1 = torch.cat([attention, x1], dim=1)
+        x = self.nConv(x1)
 
         return x
 
@@ -259,7 +352,17 @@ class ChannelSELayer(nn.Module):
             nn.Sigmoid(),
         )
 
-    def init_weights(self):
+        self._init_weights()
+
+    def forward(self, x):
+        batch_size, channel, _, _ = x.size()
+
+        y = self.squeeze(x).view(batch_size, channel)
+        y = self.excitate(y).view(batch_size, channel, 1, 1)
+
+        return x * y.expand_as(x)
+
+    def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode="fan_out")
@@ -272,22 +375,9 @@ class ChannelSELayer(nn.Module):
                 nn.init.normal_(m.weight, std=0.001)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-
-    def forward(self, x):
-        batch_size, channel, _, _ = x.size()
-
-        y = self.squeeze(x).view(batch_size, channel)
-        y = self.excitate(y).view(batch_size, channel, 1, 1)
-
-        return x * y.expand_as(x)
-
+                    
 
 def testnet(num_classes, criterion):
     model = TestNet(n_classes=num_classes, criterion=criterion)
-
-    return model
-
-def testnet_mscale(num_classes, criterion):
-    model = TestNet_mscale(n_classes=num_classes, criterion=criterion)
 
     return model

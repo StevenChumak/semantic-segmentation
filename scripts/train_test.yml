@@ -3,21 +3,15 @@ CMD: "python train.py"
 
 HPARAMS: [
   {
-  #  arch: xxx.wcid,
-   arch: test2.testnet,
+   arch: test2.testnet_mscale,
+  #  arch: test2.testnet,
    dataset: xxx,
-  #  dataset: railsem19,
    result_dir: LOGDIR,
-   RUNX.TAG: '{dataset}/down4-5,5Iup1-5,5',
    n_scales: "0.5,1.0",
-  #  crop_size: "160,320",
-  #  class_uniform_tile: 160,
-   crop_size: "304,720",
-   class_uniform_tile: 304,
+   crop_size: "400,800",
+   class_uniform_tile: 100,
    full_crop_training: True,
-  #  lr: 1e-3,
    lr: 5e-4,
-  #  rmi_loss: true,
    optimizer: "adam",
    amsgrad: true,
    poly_exp: 2,
@@ -30,6 +24,6 @@ HPARAMS: [
    gblur: True,
    brt_aug: True,
    bg_swap: True,
-  #  snapshot: "/home/s0559816/Desktop/semantic-segmentation/logs/train_test/railsem19/test2.testnet_hysterical-quetzal_2022.02.05_12.30/best_checkpoint_ep146.pth"
+  #  snapshot: ["/home/s0559816/Desktop/semantic-segmentation/logs/train_test/railsem192/test2.testnet/down4_[5,5]__up1_[5,5]/_amazing-swan_2022.02.08_17.26/best_checkpoint_ep113.pth"]
   },
 ]

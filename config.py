@@ -76,17 +76,33 @@ __C.TRAIN.FP16 = False
 __C.DATASET = AttrDict()
 
 __C.DATASET.RAILSEM19_DIR = \
-     os.path.join(__C.ASSETS_PATH, "dataset/assembled/railsem19-720-304/nearest/")
+     os.path.join(__C.ASSETS_PATH, "dataset/railsem19-720-304/nearest/")
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-320-160-new/nearest/')
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset2/720-304/nearest/')
+
+__C.DATASET.TRAINRAILS_DIR = \
+     os.path.join(__C.ASSETS_PATH, 'dataset2/800-400/nearest/')
+     
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
+
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-1440-720-new/nearest/')
 
 
 # __C.DATASET.TRAINRAILS_DIR = \
 #      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-320-160-new/nearest/')
 
-__C.DATASET.TRAINRAILS_DIR = \
-     os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
+# __C.DATASET.TRAINRAILS_DIR = \
+#      os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-720-304-new/nearest/')
 
 # __C.DATASET.TRAINRAILS_DIR = \
     #  os.path.join(__C.ASSETS_PATH, 'dataset/assembled/assembled-1440-720-new/nearest/')
+
 
 # __C.DATASET.TRAINRAILS_DIR = \
 #    os.path.join(__C.ASSETS_PATH, 'dataset/old_dataset/160-320/')
@@ -408,4 +424,11 @@ def update_dataset_cfg(num_classes, ignore_label):
 def update_dataset_inst(dataset_inst):
     cfg.immutable(False)
     cfg.DATASET_INST = dataset_inst
+    cfg.immutable(True)
+
+__C.best_ego = 0
+
+def update_ego(ego):
+    cfg.immutable(False)
+    cfg.best_ego = ego
     cfg.immutable(True)

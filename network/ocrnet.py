@@ -337,6 +337,11 @@ class MscaleOCR(nn.Module):
 def HRNet(num_classes, criterion):
     return OCRNet(num_classes, trunk='hrnetv2', criterion=criterion)
 
+def TestNet(num_classes, criterion):
+    return OCRNet(num_classes, trunk='test', criterion=criterion)
 
 def HRNet_Mscale(num_classes, criterion):
     return MscaleOCR(num_classes, trunk='hrnetv2', criterion=criterion)
+
+def TestNet_Mscale(num_classes, criterion):
+    return MscaleOCR(num_classes, trunk='test', criterion=criterion)

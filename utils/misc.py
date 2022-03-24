@@ -42,7 +42,7 @@ import torchvision.utils as vutils
 from tabulate import tabulate
 from PIL import Image
 
-from config import cfg
+from config import cfg, update_ego
 from utils.results_page import ResultsPage
 from runx.logx import logx
 
@@ -138,6 +138,7 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
     metrics = {
         'loss': val_loss.avg,
         'mean_iu': mean_iu,
+        'tackbed_iou': iu[1],
         'acc_cls': acc_cls,
         'acc': acc,
     }
@@ -154,6 +155,11 @@ def eval_metrics(iou_acc, args, net, optim, val_loss, epoch, mf_score=None):
         'command': ' '.join(sys.argv[1:])
     }
     logx.save_model(save_dict, metric=mean_iu, epoch=epoch)
+    
+    if cfg.best_ego < iu[1]:
+        save_path = os.path.join(logx.logdir,"bestEgo.pth")
+        torch.save(save_dict, save_path)
+        update_ego(iu[1])
     torch.cuda.synchronize()
 
     if mean_iu > args.best_record['mean_iu']:

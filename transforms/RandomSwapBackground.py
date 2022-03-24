@@ -36,7 +36,6 @@ def swap_background(
 
     # Apply augmentation.
     if rand_nr < 0.9:
-
         fg_arr = np.array(image)
         # Convert RGB input to cv2 native color order
         fg_arr = cv2.cvtColor(fg_arr, cv2.COLOR_RGB2BGR)
@@ -46,8 +45,13 @@ def swap_background(
 
         bg_arr = np.array(background)
         fg_size = tuple(reversed(fg_arr.shape[:2]))
-        bg_arr = cv2.resize(bg_arr, fg_size, interpolation=cv2.INTER_CUBIC)
+        # different interpolation for upscaling/downscaling
+        if bg_arr.size < fg_arr.size:
+            bg_arr = cv2.resize(bg_arr, fg_size, interpolation=cv2.INTER_LINEAR)
+        else:
+            bg_arr = cv2.resize(bg_arr, fg_size, interpolation=cv2.INTER_AREA)
         # Invert mask and spread contrast
+        
         msk_arr = 255 - msk_arr * 255
 
         # Calculate distance to label and min max scale

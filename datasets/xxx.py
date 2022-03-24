@@ -51,9 +51,9 @@ class Loader(BaseLoader):
         self.fill_colormap()
 
         splits = {
-            'train': 'trn',
+            'train': 'train',
             'val': 'val',
-            "folder": "folder",
+            "folder": "test",
                  }
                  
         split_name = splits[mode]
@@ -61,12 +61,12 @@ class Loader(BaseLoader):
         mask_ext = 'png'
         
         # currently not in use due to not having a test set
-        # if eval_folder:
-        #     img_root = os.path.join(eval_folder, 'images')
-        #     mask_root = os.path.join(eval_folder, 'masks')
-        # else:
-        img_root = os.path.join(self.root, 'images', split_name)
-        mask_root = os.path.join(self.root, 'masks', split_name)
+        if eval_folder:
+            img_root = os.path.join(eval_folder, 'images')
+            mask_root = os.path.join(eval_folder, 'masks')
+        else:
+            img_root = os.path.join(self.root, split_name, 'images')
+            mask_root = os.path.join(self.root, split_name, 'masks')
 
         self.all_imgs = self.find_images(img_root, mask_root, img_ext,
                                              mask_ext)
