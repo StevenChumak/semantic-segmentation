@@ -2,12 +2,12 @@
 # code in this file is adpated from rpmcruz/autoaugment
 # https://github.com/rpmcruz/autoaugment/blob/master/transformations.py
 import random
+
 import numpy as np
 import torch
+from PIL import Image, ImageDraw, ImageEnhance, ImageOps
 
-from PIL import Image, ImageOps, ImageEnhance, ImageDraw
 from config import cfg
-
 
 fillmask = cfg.DATASET.IGNORE_LABEL
 fillcolor = (0, 0, 0)
@@ -15,10 +15,20 @@ fillcolor = (0, 0, 0)
 
 def affine_transform(pair, affine_params):
     img, mask = pair
-    img = img.transform(img.size, Image.AFFINE, affine_params,
-                        resample=Image.BILINEAR, fillcolor=fillcolor)
-    mask = mask.transform(mask.size, Image.AFFINE, affine_params,
-                          resample=Image.NEAREST, fillcolor=fillmask)
+    img = img.transform(
+        img.size,
+        Image.AFFINE,
+        affine_params,
+        resample=Image.BILINEAR,
+        fillcolor=fillcolor,
+    )
+    mask = mask.transform(
+        mask.size,
+        Image.AFFINE,
+        affine_params,
+        resample=Image.NEAREST,
+        fillcolor=fillmask,
+    )
     return img, mask
 
 
@@ -144,7 +154,7 @@ def Sharpness(pair, v):  # [0.1,1.9]
 
 def Cutout(pair, v):  # [0, 60] => percentage: [0, 0.2]
     assert 0.0 <= v <= 0.2
-    if v <= 0.:
+    if v <= 0.0:
         return pair
     img, mask = pair
     v = v * img.size[0]
@@ -159,8 +169,8 @@ def CutoutAbs(img, v):  # [0, 60] => percentage: [0, 0.2]
     x0 = np.random.uniform(w)
     y0 = np.random.uniform(h)
 
-    x0 = int(max(0, x0 - v / 2.))
-    y0 = int(max(0, y0 - v / 2.))
+    x0 = int(max(0, x0 - v / 2.0))
+    y0 = int(max(0, y0 - v / 2.0))
     x1 = min(w, x0 + v)
     y1 = min(h, y0 + v)
 
@@ -179,11 +189,11 @@ def Identity(pair, v):
 def augment_list():  # 16 oeprations and their ranges
     # https://github.com/google-research/uda/blob/master/image/randaugment/policies.py#L57
     l = [
-        (Identity, 0., 1.0),
-        (ShearX, 0., 0.3),  # 0
-        (ShearY, 0., 0.3),  # 1
-        (TranslateX, 0., 0.33),  # 2
-        (TranslateY, 0., 0.33),  # 3
+        (Identity, 0.0, 1.0),
+        (ShearX, 0.0, 0.3),  # 0
+        (ShearY, 0.0, 0.3),  # 1
+        (TranslateX, 0.0, 0.33),  # 2
+        (TranslateY, 0.0, 0.33),  # 3
         (Rotate, 0, 30),  # 4
         (AutoContrast, 0, 1),  # 5
         (Invert, 0, 1),  # 6
@@ -214,10 +224,14 @@ class Lighting(object):
             return img
 
         alpha = img.new().resize_(3).normal_(0, self.alphastd)
-        rgb = self.eigvec.type_as(img).clone() \
-            .mul(alpha.view(1, 3).expand(3, 3)) \
-            .mul(self.eigval.view(1, 3).expand(3, 3)) \
-            .sum(1).squeeze()
+        rgb = (
+            self.eigvec.type_as(img)
+            .clone()
+            .mul(alpha.view(1, 3).expand(3, 3))
+            .mul(self.eigval.view(1, 3).expand(3, 3))
+            .sum(1)
+            .squeeze()
+        )
 
         return img.add(rgb.view(3, 1, 1).expand_as(img))
 
@@ -226,6 +240,7 @@ class CutoutDefault(object):
     """
     Reference : https://github.com/quark0/darts/blob/master/cnn/utils.py
     """
+
     def __init__(self, length):
         self.length = length
 
@@ -240,7 +255,7 @@ class CutoutDefault(object):
         x1 = np.clip(x - self.length // 2, 0, w)
         x2 = np.clip(x + self.length // 2, 0, w)
 
-        mask[y1: y2, x1: x2] = 0.
+        mask[y1:y2, x1:x2] = 0.0
         mask = torch.from_numpy(mask)
         mask = mask.expand_as(img)
         img *= mask
@@ -250,7 +265,7 @@ class CutoutDefault(object):
 class RandAugment:
     def __init__(self, n, m):
         self.n = n
-        self.m = m      # [0, 30]
+        self.m = m  # [0, 30]
         self.augment_list = augment_list()
 
     def __call__(self, img, mask):

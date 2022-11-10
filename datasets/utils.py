@@ -9,10 +9,10 @@ def make_dataset_folder(folder):
     returns: items list with None filled for mask path
     """
     items = os.listdir(folder)
-    items = [(os.path.join(folder, f), '') for f in items]
+    items = [(os.path.join(folder, f), "") for f in items]
     items = sorted(items)
 
-    print(f'Found {len(items)} folder imgs')
+    print(f"Found {len(items)} folder imgs")
 
     """
     orig_len = len(items)

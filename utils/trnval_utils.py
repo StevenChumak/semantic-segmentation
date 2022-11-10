@@ -28,14 +28,13 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 """
 import os
+
 import torch
+from runx.logx import logx
 
 from config import cfg
-from utils.misc import fast_hist, fmt_scale
-from utils.misc import AverageMeter, eval_metrics
-from utils.misc import metrics_per_image
-
-from runx.logx import logx
+from utils.misc import (AverageMeter, eval_metrics, fast_hist, fmt_scale,
+                        metrics_per_image)
 
 
 def flip_tensor(x, dim):
@@ -43,15 +42,20 @@ def flip_tensor(x, dim):
     Flip Tensor along a dimension
     """
     dim = x.dim() + dim if dim < 0 else dim
-    return x[tuple(slice(None, None) if i != dim
-                   else torch.arange(x.size(i) - 1, -1, -1).long()
-                   for i in range(x.dim()))]
+    return x[
+        tuple(
+            slice(None, None)
+            if i != dim
+            else torch.arange(x.size(i) - 1, -1, -1).long()
+            for i in range(x.dim())
+        )
+    ]
 
 
 def resize_tensor(inputs, target_size):
     inputs = torch.nn.functional.interpolate(
-        inputs, size=target_size, mode='bilinear',
-        align_corners=cfg.MODEL.ALIGN_CORNERS)
+        inputs, size=target_size, mode="bilinear", align_corners=cfg.MODEL.ALIGN_CORNERS
+    )
     return inputs
 
 
@@ -94,9 +98,9 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
 
     scales = [args.default_scale]
     if args.multi_scale_inference:
-        scales.extend([float(x) for x in args.extra_scales.split(',')])
+        scales.extend([float(x) for x in args.extra_scales.split(",")])
         if val_idx == 0:
-            logx.msg(f'Using multi-scale inference (AVGPOOL) with scales {scales}')
+            logx.msg(f"Using multi-scale inference (AVGPOOL) with scales {scales}")
 
     # input    = torch.Size([1, 3, h, w])
     # gt_image = torch.Size([1, h, w])
@@ -128,7 +132,7 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
                 if scale != 1.0:
                     inputs = resize_tensor(inputs, infer_size)
 
-                inputs = {'images': inputs, 'gts': gt_image}
+                inputs = {"images": inputs, "gts": gt_image}
                 inputs = {k: v.cuda() for k, v in inputs.items()}
 
                 # Expected Model outputs:
@@ -140,11 +144,11 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
                 #     'attn_*' - multi-scale attentions from mscale model
                 output_dict = net(inputs)
 
-                _pred = output_dict['pred']
+                _pred = output_dict["pred"]
 
                 # save AVGPOOL style multi-scale output for visualizing
                 if not cfg.MODEL.MSCALE:
-                    scale_name = fmt_scale('pred', scale)
+                    scale_name = fmt_scale("pred", scale)
                     output_dict[scale_name] = _pred
 
                 # resize tensor down to 1.0x scale in order to combine
@@ -158,17 +162,15 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
                     output = output + _pred
 
     output = output / len(scales) / len(flips)
-    assert_msg = 'output_size {} gt_cuda size {}'
+    assert_msg = "output_size {} gt_cuda size {}"
     gt_cuda = gt_image.cuda()
-    assert_msg = assert_msg.format(
-        output.size()[2:], gt_cuda.size()[1:])
+    assert_msg = assert_msg.format(output.size()[2:], gt_cuda.size()[1:])
     assert output.size()[2:] == gt_cuda.size()[1:], assert_msg
     assert output.size()[1] == cfg.DATASET.NUM_CLASSES, assert_msg
 
     # Update loss and scoring datastructure
     if calc_metrics:
-        val_loss.update(criterion(output, gt_image.cuda()).item(),
-                        batch_pixel_size)
+        val_loss.update(criterion(output, gt_image.cuda()).item(), batch_pixel_size)
 
     output_data = torch.nn.functional.softmax(output, dim=1).cpu().data
     max_probs, predictions = output_data.max(1)
@@ -176,24 +178,24 @@ def eval_minibatch(data, net, criterion, val_loss, calc_metrics, args, val_idx):
     # Assemble assets to visualize
     assets = {}
     for item in output_dict:
-        if 'attn_' in item:
+        if "attn_" in item:
             assets[item] = output_dict[item]
-        if 'pred_' in item:
+        if "pred_" in item:
             smax = torch.nn.functional.softmax(output_dict[item], dim=1)
             _, pred = smax.data.max(1)
             assets[item] = pred.cpu().numpy()
 
     predictions = predictions.numpy()
-    assets['predictions'] = predictions
-    assets['prob_mask'] = max_probs
+    assets["predictions"] = predictions
+    assets["prob_mask"] = max_probs
     if calc_metrics:
-        assets['err_mask'] = calc_err_mask_all(predictions,
-                                               gt_image.numpy(),
-                                               cfg.DATASET.NUM_CLASSES)
+        assets["err_mask"] = calc_err_mask_all(
+            predictions, gt_image.numpy(), cfg.DATASET.NUM_CLASSES
+        )
 
-    _iou_acc = fast_hist(predictions.flatten(),
-                         gt_image.numpy().flatten(),
-                         cfg.DATASET.NUM_CLASSES)
+    _iou_acc = fast_hist(
+        predictions.flatten(), gt_image.numpy().flatten(), cfg.DATASET.NUM_CLASSES
+    )
 
     return assets, _iou_acc
 
@@ -213,7 +215,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
     ######################################################################
     # First pass
     ######################################################################
-    logx.msg('First pass')
+    logx.msg("First pass")
     image_metrics = {}
 
     net.eval()
@@ -223,8 +225,9 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
     for val_idx, data in enumerate(val_loader):
 
         # Run network
-        assets, _iou_acc = \
-            eval_minibatch(data, net, criterion, val_loss, True, args, val_idx)
+        assets, _iou_acc = eval_minibatch(
+            data, net, criterion, val_loss, True, args, val_idx
+        )
 
         # per-class metrics
         input_images, labels, img_names, _ = data
@@ -236,7 +239,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
         iou_acc += _iou_acc
 
         if val_idx % 20 == 0:
-            logx.msg(f'validating[Iter: {val_idx + 1} / {len(val_loader)}]')
+            logx.msg(f"validating[Iter: {val_idx + 1} / {len(val_loader)}]")
 
         if val_idx > 5 and args.test_mode:
             break
@@ -247,6 +250,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
     # Find top 20 worst failures from a pixel count perspective
     ######################################################################
     from collections import defaultdict
+
     worst_images = defaultdict(dict)
     class_to_images = defaultdict(dict)
     for classid in range(cfg.DATASET.NUM_CLASSES):
@@ -257,7 +261,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
             fn = fn[classid]
             tbl[img_name] = fp + fn
         worst = sorted(tbl, key=tbl.get, reverse=True)
-        for img_name in worst[:args.dump_topn]:
+        for img_name in worst[: args.dump_topn]:
             fail_pixels = tbl[img_name]
             worst_images[img_name][classid] = fail_pixels
             class_to_images[classid][img_name] = fail_pixels
@@ -271,7 +275,7 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
     ######################################################################
     # 2nd pass
     ######################################################################
-    logx.msg('Second pass')
+    logx.msg("Second pass")
     attn_map = None
 
     for val_idx, data in enumerate(val_loader):
@@ -283,14 +287,15 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
 
         with torch.no_grad():
             inputs = in_image.cuda()
-            inputs = {'images': inputs, 'gts': gt_image}
+            inputs = {"images": inputs, "gts": gt_image}
 
             if cfg.MODEL.MSCALE:
                 output = net(inputs)
             else:
                 output = net(inputs)
         import torch.nn.functional as F
-        output = F.softmax(output['pred'], dim=1)
+
+        output = F.softmax(output["pred"], dim=1)
         prob_mask, predictions = output.data.max(1)
         predictions = predictions.cpu()
 
@@ -298,53 +303,55 @@ def validate_topn(val_loader, net, criterion, optim, epoch, args):
         img_name = img_names[0]
         for classid in worst_images[img_name].keys():
 
-            err_mask = calc_err_mask(predictions.numpy(),
-                                     gt_image.numpy(),
-                                     cfg.DATASET.NUM_CLASSES,
-                                     classid)
+            err_mask = calc_err_mask(
+                predictions.numpy(), gt_image.numpy(), cfg.DATASET.NUM_CLASSES, classid
+            )
 
             class_name = cfg.DATASET_INST.trainid_to_name[classid]
             error_pixels = worst_images[img_name][classid]
-            logx.msg(f'{img_name} {class_name}: {error_pixels}')
-            img_names = [img_name + f'_{class_name}']
+            logx.msg(f"{img_name} {class_name}: {error_pixels}")
+            img_names = [img_name + f"_{class_name}"]
 
-            to_dump = {'gt_images': gt_image,
-                       'input_images': in_image,
-                       'predictions': predictions.numpy(),
-                       'err_mask': err_mask,
-                       'prob_mask': prob_mask,
-                       'img_names': img_names}
+            to_dump = {
+                "gt_images": gt_image,
+                "input_images": in_image,
+                "predictions": predictions.numpy(),
+                "err_mask": err_mask,
+                "prob_mask": prob_mask,
+                "img_names": img_names,
+            }
 
             if attn_map is not None:
-                to_dump['attn_maps'] = attn_map
+                to_dump["attn_maps"] = attn_map
 
             # FIXME!
             # do_dump_images([to_dump])
 
-    html_fn = os.path.join(args.result_dir, 'best_images',
-                           'topn_failures.html')
+    html_fn = os.path.join(args.result_dir, "best_images", "topn_failures.html")
     if not os.path.exists(html_fn):
-        os.makedirs(os.path.dirname(html_fn),exist_ok=True)
+        os.makedirs(os.path.dirname(html_fn), exist_ok=True)
     from utils.results_page import ResultsPage
-    ip = ResultsPage('topn failures', html_fn)
+
+    ip = ResultsPage("topn failures", html_fn)
     for classid in class_to_images:
         class_name = cfg.DATASET_INST.trainid_to_name[classid]
         img_dict = class_to_images[classid]
         for img_name in sorted(img_dict, key=img_dict.get, reverse=True):
             fail_pixels = class_to_images[classid][img_name]
-            img_cls = f'{img_name}_{class_name}'
-            pred_fn = f'{img_cls}_prediction.png'
-            gt_fn = f'{img_cls}_gt.png'
-            inp_fn = f'{img_cls}_input.png'
-            err_fn = f'{img_cls}_err_mask.png'
-            prob_fn = f'{img_cls}_prob_mask.png'
-            img_label_pairs = [(pred_fn, 'pred'),
-                               (gt_fn, 'gt'),
-                               (inp_fn, 'input'),
-                               (err_fn, 'errors'),
-                               (prob_fn, 'prob')]
-            ip.add_table(img_label_pairs,
-                         table_heading=f'{class_name}-{fail_pixels}')
+            img_cls = f"{img_name}_{class_name}"
+            pred_fn = f"{img_cls}_prediction.png"
+            gt_fn = f"{img_cls}_gt.png"
+            inp_fn = f"{img_cls}_input.png"
+            err_fn = f"{img_cls}_err_mask.png"
+            prob_fn = f"{img_cls}_prob_mask.png"
+            img_label_pairs = [
+                (pred_fn, "pred"),
+                (gt_fn, "gt"),
+                (inp_fn, "input"),
+                (err_fn, "errors"),
+                (prob_fn, "prob"),
+            ]
+            ip.add_table(img_label_pairs, table_heading=f"{class_name}-{fail_pixels}")
     ip.write_page()
 
     return val_loss.avg

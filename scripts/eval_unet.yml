@@ -8,7 +8,7 @@ HPARAMS: [
   dataset: se_perception,
   fp16: true,
   bs_val: 1,
-# eval: folder,
+  # eval: folder,
   eval: val,
   dump_assets: true,
   dump_all_images: true,
@@ -17,6 +17,6 @@ HPARAMS: [
   snapshot: "/home/s0559816/Desktop/semantic-segmentation/logs/train_wcid/wcid.wcid_crouching-bug_2021.12.25_20.28/best_checkpoint_ep156.pth",
   result_dir: "/home/s0559816/Desktop/semantic-segmentation/logs/train_wcid/wcid.wcid_crouching-bug_2021.12.25_20.28/results",
   eval_folder: "/home/s0559816/Desktop/finalDataset/960-540/test/",
-  arch: wcid.wcid,
+  arch: unet.unet,
   },
 ]

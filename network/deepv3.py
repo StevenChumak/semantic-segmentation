@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 import torch
 from torch import nn
 
-from network.mynn import initialize_weights, Norm2d, Upsample
+from network.mynn import Norm2d, Upsample, initialize_weights
 from network.utils import get_aspp, get_trunk, make_seg_head
 
 
@@ -42,15 +42,16 @@ class DeepV3Plus(nn.Module):
     DeepLabV3+ with various trunks supported
     Always stride8
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None,
-                 use_dpc=False, init_all=False):
+
+    def __init__(
+        self, num_classes, trunk="wrn38", criterion=None, use_dpc=False, init_all=False
+    ):
         super(DeepV3Plus, self).__init__()
         self.criterion = criterion
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=8,
-                                          dpc=use_dpc)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8, dpc=use_dpc
+        )
         self.bot_fine = nn.Conv2d(s2_ch, 48, kernel_size=1, bias=False)
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
         self.final = nn.Sequential(
@@ -60,7 +61,8 @@ class DeepV3Plus(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
             Norm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, num_classes, kernel_size=1, bias=False))
+            nn.Conv2d(256, num_classes, kernel_size=1, bias=False),
+        )
 
         if init_all:
             initialize_weights(self.aspp)
@@ -71,8 +73,8 @@ class DeepV3Plus(nn.Module):
             initialize_weights(self.final)
 
     def forward(self, inputs):
-        assert 'images' in inputs
-        x = inputs['images']
+        assert "images" in inputs
+        x = inputs["images"]
 
         x_size = x.size()
         s2_features, _, final_features = self.backbone(x)
@@ -86,66 +88,72 @@ class DeepV3Plus(nn.Module):
         out = Upsample(final, x_size[2:])
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             return self.criterion(out, gts)
 
-        return {'pred': out}
+        return {"pred": out}
 
 
 def DeepV3PlusSRNX50(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='seresnext-50', criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="seresnext-50", criterion=criterion)
 
 
 def DeepV3PlusR50(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='resnet-50', criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="resnet-50", criterion=criterion)
 
 
 def DeepV3PlusSRNX101(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='seresnext-101', criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="seresnext-101", criterion=criterion)
 
 
 def DeepV3PlusW38(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='wrn38', criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="wrn38", criterion=criterion)
 
 
 def DeepV3PlusW38I(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='wrn38', criterion=criterion,
-                      init_all=True)
+    return DeepV3Plus(num_classes, trunk="wrn38", criterion=criterion, init_all=True)
 
 
 def DeepV3PlusX71(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='xception71', criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="xception71", criterion=criterion)
 
 
 def DeepV3PlusEffB4(num_classes, criterion):
-    return DeepV3Plus(num_classes, trunk='efficientnet_b4',
-                      criterion=criterion)
+    return DeepV3Plus(num_classes, trunk="efficientnet_b4", criterion=criterion)
 
 
 class DeepV3(nn.Module):
     """
     DeepLabV3 with various trunks supported
     """
-    def __init__(self, num_classes, trunk='resnet-50', criterion=None,
-                 use_dpc=False, init_all=False, output_stride=8):
+
+    def __init__(
+        self,
+        num_classes,
+        trunk="resnet-50",
+        criterion=None,
+        use_dpc=False,
+        init_all=False,
+        output_stride=8,
+    ):
         super(DeepV3, self).__init__()
         self.criterion = criterion
 
-        self.backbone, _s2_ch, _s4_ch, high_level_ch = \
-            get_trunk(trunk, output_stride=output_stride)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=output_stride,
-                                          dpc=use_dpc)
+        self.backbone, _s2_ch, _s4_ch, high_level_ch = get_trunk(
+            trunk, output_stride=output_stride
+        )
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=output_stride, dpc=use_dpc
+        )
         self.final = make_seg_head(in_ch=aspp_out_ch, out_ch=num_classes)
 
         initialize_weights(self.aspp)
         initialize_weights(self.final)
 
     def forward(self, inputs):
-        assert 'images' in inputs
-        x = inputs['images']
+        assert "images" in inputs
+        x = inputs["images"]
 
         x_size = x.size()
         _, _, final_features = self.backbone(x)
@@ -154,13 +162,12 @@ class DeepV3(nn.Module):
         out = Upsample(final, x_size[2:])
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             return self.criterion(out, gts)
 
-        return {'pred': out}
+        return {"pred": out}
 
 
 def DeepV3R50(num_classes, criterion):
-    return DeepV3(num_classes, trunk='resnet-50', criterion=criterion)
-
+    return DeepV3(num_classes, trunk="resnet-50", criterion=criterion)

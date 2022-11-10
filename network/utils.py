@@ -31,63 +31,67 @@ from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
-
+from runx.logx import logx
 from torch import nn
 
-from network.mynn import Norm2d, Upsample
-from network.xception import xception71
-from network.wider_resnet import wrn38
-from network.SEresnext import se_resnext50_32x4d, se_resnext101_32x4d
-from network.Resnet import resnet50, resnet101
 import network.hrnetv2 as hrnetv2
-from network.test import TestNet
-
-from runx.logx import logx
 from config import cfg
+from network.mynn import Norm2d, Upsample
+from network.Resnet import resnet50, resnet101
+from network.SEresnext import se_resnext50_32x4d, se_resnext101_32x4d
+from network.test import TestNet
+from network.wider_resnet import wrn38
+from network.xception import xception71
 
 
 class get_resnet(nn.Module):
     def __init__(self, trunk_name, output_stride=8):
         super(get_resnet, self).__init__()
 
-        if trunk_name == 'seresnext-50':
+        if trunk_name == "seresnext-50":
             resnet = se_resnext50_32x4d()
-        elif trunk_name == 'seresnext-101':
+        elif trunk_name == "seresnext-101":
             resnet = se_resnext101_32x4d()
-        elif trunk_name == 'resnet-50':
+        elif trunk_name == "resnet-50":
             resnet = resnet50()
-            resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1,
-                                          resnet.relu, resnet.maxpool)
-        elif trunk_name == 'resnet-101':
+            resnet.layer0 = nn.Sequential(
+                resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool
+            )
+        elif trunk_name == "resnet-101":
             resnet = resnet101()
-            resnet.layer0 = nn.Sequential(resnet.conv1, resnet.bn1,
-                                          resnet.relu, resnet.maxpool)
+            resnet.layer0 = nn.Sequential(
+                resnet.conv1, resnet.bn1, resnet.relu, resnet.maxpool
+            )
         else:
             raise ValueError("Not a valid network arch")
 
         self.layer0 = resnet.layer0
-        self.layer1, self.layer2, self.layer3, self.layer4 = \
-            resnet.layer1, resnet.layer2, resnet.layer3, resnet.layer4
+        self.layer1, self.layer2, self.layer3, self.layer4 = (
+            resnet.layer1,
+            resnet.layer2,
+            resnet.layer3,
+            resnet.layer4,
+        )
 
         if output_stride == 8:
             for n, m in self.layer3.named_modules():
-                if 'conv2' in n:
+                if "conv2" in n:
                     m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
-                elif 'downsample.0' in n:
+                elif "downsample.0" in n:
                     m.stride = (1, 1)
             for n, m in self.layer4.named_modules():
-                if 'conv2' in n:
+                if "conv2" in n:
                     m.dilation, m.padding, m.stride = (4, 4), (4, 4), (1, 1)
-                elif 'downsample.0' in n:
+                elif "downsample.0" in n:
                     m.stride = (1, 1)
         elif output_stride == 16:
             for n, m in self.layer4.named_modules():
-                if 'conv2' in n:
+                if "conv2" in n:
                     m.dilation, m.padding, m.stride = (2, 2), (2, 2), (1, 1)
-                elif 'downsample.0' in n:
+                elif "downsample.0" in n:
                     m.stride = (1, 1)
         else:
-            raise 'unsupported output_stride {}'.format(output_stride)
+            raise "unsupported output_stride {}".format(output_stride)
 
     def forward(self, x):
         x = self.layer0(x)
@@ -104,9 +108,9 @@ def get_trunk(trunk_name, output_stride=8):
     """
     Retrieve the network trunk and channel counts.
     """
-    assert output_stride == 8, 'Only stride8 supported right now'
+    assert output_stride == 8, "Only stride8 supported right now"
 
-    if trunk_name == 'wrn38':
+    if trunk_name == "wrn38":
         #
         # FIXME: pass in output_stride once we support stride 16
         #
@@ -114,35 +118,36 @@ def get_trunk(trunk_name, output_stride=8):
         s2_ch = 128
         s4_ch = 256
         high_level_ch = 4096
-    elif trunk_name == 'xception71':
-        backbone = xception71(output_stride=output_stride, BatchNorm=Norm2d,
-                              pretrained=True)
+    elif trunk_name == "xception71":
+        backbone = xception71(
+            output_stride=output_stride, BatchNorm=Norm2d, pretrained=True
+        )
         s2_ch = 64
         s4_ch = 128
         high_level_ch = 2048
-    elif trunk_name == 'seresnext-50' or trunk_name == 'seresnext-101':
+    elif trunk_name == "seresnext-50" or trunk_name == "seresnext-101":
         backbone = get_resnet(trunk_name, output_stride=output_stride)
         s2_ch = 48
         s4_ch = -1
         high_level_ch = 2048
-    elif trunk_name == 'resnet-50' or trunk_name == 'resnet-101':
+    elif trunk_name == "resnet-50" or trunk_name == "resnet-101":
         backbone = get_resnet(trunk_name, output_stride=output_stride)
         s2_ch = 256
         s4_ch = -1
         high_level_ch = 2048
-    elif trunk_name == 'hrnetv2':
+    elif trunk_name == "hrnetv2":
         backbone = hrnetv2.get_seg_model()
         high_level_ch = backbone.high_level_ch
         s2_ch = -1
         s4_ch = -1
-    elif trunk_name == "test":
+    elif trunk_name == "testNet":
         backbone = TestNet(4)
         high_level_ch = backbone.high_level_ch
         s2_ch = -1
         s4_ch = -1
-    
+
     else:
-        raise 'unknown backbone {}'.format(trunk_name)
+        raise "unknown backbone {}".format(trunk_name)
 
     logx.msg("Trunk: {}".format(trunk_name))
     return backbone, s2_ch, s4_ch, high_level_ch
@@ -150,11 +155,18 @@ def get_trunk(trunk_name, output_stride=8):
 
 class ConvBnRelu(nn.Module):
     # https://github.com/lingtengqiu/Deeperlab-pytorch/blob/master/seg_opr/seg_oprs.py
-    def __init__(self, in_planes, out_planes, kernel_size, stride=1, padding=0,
-                 norm_layer=Norm2d):
+    def __init__(
+        self, in_planes, out_planes, kernel_size, stride=1, padding=0, norm_layer=Norm2d
+    ):
         super(ConvBnRelu, self).__init__()
-        self.conv = nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size,
-                              stride=stride, padding=padding, bias=False)
+        self.conv = nn.Conv2d(
+            in_planes,
+            out_planes,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=False,
+        )
         self.bn = norm_layer(out_planes, eps=1e-5)
         self.relu = nn.ReLU(inplace=True)
 
@@ -178,8 +190,7 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
       Final 1x1 conv
     """
 
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=(6, 12, 18)):
+    def __init__(self, in_dim, reduction_dim=256, output_stride=16, rates=(6, 12, 18)):
         super(AtrousSpatialPyramidPoolingModule, self).__init__()
 
         if output_stride == 8:
@@ -187,29 +198,42 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
         elif output_stride == 16:
             pass
         else:
-            raise 'output stride of {} not supported'.format(output_stride)
+            raise "output stride of {} not supported".format(output_stride)
 
         self.features = []
         # 1x1
         self.features.append(
-            nn.Sequential(nn.Conv2d(in_dim, reduction_dim, kernel_size=1,
-                                    bias=False),
-                          Norm2d(reduction_dim), nn.ReLU(inplace=True)))
+            nn.Sequential(
+                nn.Conv2d(in_dim, reduction_dim, kernel_size=1, bias=False),
+                Norm2d(reduction_dim),
+                nn.ReLU(inplace=True),
+            )
+        )
         # other rates
         for r in rates:
-            self.features.append(nn.Sequential(
-                nn.Conv2d(in_dim, reduction_dim, kernel_size=3,
-                          dilation=r, padding=r, bias=False),
-                Norm2d(reduction_dim),
-                nn.ReLU(inplace=True)
-            ))
+            self.features.append(
+                nn.Sequential(
+                    nn.Conv2d(
+                        in_dim,
+                        reduction_dim,
+                        kernel_size=3,
+                        dilation=r,
+                        padding=r,
+                        bias=False,
+                    ),
+                    Norm2d(reduction_dim),
+                    nn.ReLU(inplace=True),
+                )
+            )
         self.features = nn.ModuleList(self.features)
 
         # img level features
         self.img_pooling = nn.AdaptiveAvgPool2d(1)
         self.img_conv = nn.Sequential(
             nn.Conv2d(in_dim, reduction_dim, kernel_size=1, bias=False),
-            Norm2d(reduction_dim), nn.ReLU(inplace=True))
+            Norm2d(reduction_dim),
+            nn.ReLU(inplace=True),
+        )
 
     def forward(self, x):
         x_size = x.size()
@@ -226,15 +250,18 @@ class AtrousSpatialPyramidPoolingModule(nn.Module):
 
 
 class ASPP_edge(AtrousSpatialPyramidPoolingModule):
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=(6, 12, 18)):
-        super(ASPP_edge, self).__init__(in_dim=in_dim,
-                                        reduction_dim=reduction_dim,
-                                        output_stride=output_stride,
-                                        rates=rates)
+    def __init__(self, in_dim, reduction_dim=256, output_stride=16, rates=(6, 12, 18)):
+        super(ASPP_edge, self).__init__(
+            in_dim=in_dim,
+            reduction_dim=reduction_dim,
+            output_stride=output_stride,
+            rates=rates,
+        )
         self.edge_conv = nn.Sequential(
             nn.Conv2d(1, reduction_dim, kernel_size=1, bias=False),
-            Norm2d(reduction_dim), nn.ReLU(inplace=True))
+            Norm2d(reduction_dim),
+            nn.ReLU(inplace=True),
+        )
 
     def forward(self, x, edge):
         x_size = x.size()
@@ -260,21 +287,35 @@ def dpc_conv(in_dim, reduction_dim, dil, separable):
         groups = 1
 
     return nn.Sequential(
-        nn.Conv2d(in_dim, reduction_dim, kernel_size=3, dilation=dil,
-                  padding=dil, bias=False, groups=groups),
+        nn.Conv2d(
+            in_dim,
+            reduction_dim,
+            kernel_size=3,
+            dilation=dil,
+            padding=dil,
+            bias=False,
+            groups=groups,
+        ),
         nn.BatchNorm2d(reduction_dim),
-        nn.ReLU(inplace=True)
+        nn.ReLU(inplace=True),
     )
 
 
 class DPC(nn.Module):
-    '''
+    """
     From: Searching for Efficient Multi-scale architectures for dense
     prediction
-    '''
-    def __init__(self, in_dim, reduction_dim=256, output_stride=16,
-                 rates=[(1, 6), (18, 15), (6, 21), (1, 1), (6, 3)],
-                 dropout=False, separable=False):
+    """
+
+    def __init__(
+        self,
+        in_dim,
+        reduction_dim=256,
+        output_stride=16,
+        rates=[(1, 6), (18, 15), (6, 21), (1, 1), (6, 3)],
+        dropout=False,
+        separable=False,
+    ):
         super(DPC, self).__init__()
 
         self.dropout = dropout
@@ -283,7 +324,7 @@ class DPC(nn.Module):
         elif output_stride == 16:
             pass
         else:
-            raise 'output stride of {} not supported'.format(output_stride)
+            raise "output stride of {} not supported".format(output_stride)
 
         self.a = dpc_conv(in_dim, reduction_dim, rates[0], separable)
         self.b = dpc_conv(reduction_dim, reduction_dim, rates[1], separable)
@@ -312,16 +353,15 @@ def get_aspp(high_level_ch, bottleneck_ch, output_stride, dpc=False):
     if dpc:
         aspp = DPC(high_level_ch, bottleneck_ch, output_stride=output_stride)
     else:
-        aspp = AtrousSpatialPyramidPoolingModule(high_level_ch, bottleneck_ch,
-                                                 output_stride=output_stride)
+        aspp = AtrousSpatialPyramidPoolingModule(
+            high_level_ch, bottleneck_ch, output_stride=output_stride
+        )
     aspp_out_ch = 5 * bottleneck_ch
     return aspp, aspp_out_ch
 
 
 def BNReLU(ch):
-    return nn.Sequential(
-        Norm2d(ch),
-        nn.ReLU())
+    return nn.Sequential(Norm2d(ch), nn.ReLU())
 
 
 def make_seg_head(in_ch, out_ch):
@@ -333,7 +373,8 @@ def make_seg_head(in_ch, out_ch):
         nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1, bias=False),
         Norm2d(bot_ch),
         nn.ReLU(inplace=True),
-        nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False))
+        nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False),
+    )
 
 
 def init_attn(m):
@@ -352,22 +393,24 @@ def make_attn_head(in_ch, out_ch):
     if cfg.MODEL.MSCALE_OLDARCH:
         return old_make_attn_head(in_ch, bot_ch, out_ch)
 
-    od = OrderedDict([('conv0', nn.Conv2d(in_ch, bot_ch, kernel_size=3,
-                                          padding=1, bias=False)),
-                      ('bn0', Norm2d(bot_ch)),
-                      ('re0', nn.ReLU(inplace=True))])
+    od = OrderedDict(
+        [
+            ("conv0", nn.Conv2d(in_ch, bot_ch, kernel_size=3, padding=1, bias=False)),
+            ("bn0", Norm2d(bot_ch)),
+            ("re0", nn.ReLU(inplace=True)),
+        ]
+    )
 
     if cfg.MODEL.MSCALE_INNER_3x3:
-        od['conv1'] = nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1,
-                                bias=False)
-        od['bn1'] = Norm2d(bot_ch)
-        od['re1'] = nn.ReLU(inplace=True)
+        od["conv1"] = nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1, bias=False)
+        od["bn1"] = Norm2d(bot_ch)
+        od["re1"] = nn.ReLU(inplace=True)
 
     if cfg.MODEL.MSCALE_DROPOUT:
-        od['drop'] = nn.Dropout(0.5)
+        od["drop"] = nn.Dropout(0.5)
 
-    od['conv2'] = nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False)
-    od['sig'] = nn.Sigmoid()
+    od["conv2"] = nn.Conv2d(bot_ch, out_ch, kernel_size=1, bias=False)
+    od["sig"] = nn.Sigmoid()
 
     attn_head = nn.Sequential(od)
     # init_attn(attn_head)
@@ -383,7 +426,8 @@ def old_make_attn_head(in_ch, bot_ch, out_ch):
         Norm2d(bot_ch),
         nn.ReLU(inplace=True),
         nn.Conv2d(bot_ch, out_ch, kernel_size=out_ch, bias=False),
-        nn.Sigmoid())
+        nn.Sigmoid(),
+    )
 
     init_attn(attn)
     return attn

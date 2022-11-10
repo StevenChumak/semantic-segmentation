@@ -2,21 +2,17 @@ import math
 
 import torch
 import torch.nn as nn
+from runx.logx import logx
 from torch.nn import init
 from torch.nn.modules.conv import ConvTranspose2d
-from runx.logx import logx
 
-from network.utils import old_make_attn_head
-from network.mscale2 import MscaleBase
 from config import cfg
 
-
-align_corners = cfg.MODEL.ALIGN_CORNERS
 
 class WCID_block(nn.Module):
     def __init__(self, num_classes):
         super(WCID_block, self).__init__()
-        in_channels=3     
+        in_channels = 3
         self.multiplier = 1
 
         l1 = [in_channels, 8, 16]
@@ -28,7 +24,6 @@ class WCID_block(nn.Module):
         l7 = [l6[2], 32, 32, 16]
         l8 = [l7[3], 16, num_classes]
 
-       
         # Convolution
         self.wcidLayer1 = Down1(l1, self.multiplier)
         self.wcidLayer2 = Down2(l2, self.multiplier)
@@ -42,7 +37,7 @@ class WCID_block(nn.Module):
         self.wcidLayer8 = Up4(l8, self.multiplier)
 
         self.high_level_ch = self.wcidLayer8.out_channels
-        
+
     def forward(self, x):
 
         x1 = self.wcidLayer1(x)
@@ -61,7 +56,7 @@ class WCID_block(nn.Module):
 class WCID_SE_block(nn.Module):
     def __init__(self, num_classes, se_reduction):
         super(WCID_SE_block, self).__init__()
-        in_channels=3     
+        in_channels = 3
         self.se_reduction = se_reduction
         self.multiplier = 1.2
 
@@ -69,12 +64,12 @@ class WCID_SE_block(nn.Module):
         l2 = [l1[-1], 16, 32, 32]
         l3 = [l2[-1], 64, 64]
         l4 = [l3[-1], 64, 64]
-        
+
         l5 = [l4[-1], 64, 64]
         l6 = [l5[-1], 64, 64]
         l7 = [l6[-1], 32, 32, 16]
         l8 = [l7[-1], 16, num_classes]
-        
+
         # l1 = [in_channels, 16, 32]
         # l2 = [l1[-1], 32, 64]
         # l3 = [l2[-1], 128, 128]
@@ -96,7 +91,7 @@ class WCID_SE_block(nn.Module):
         self.wcidLayer6 = Up2(l6, self.multiplier)
         self.wcidLayer7 = Up3(l7, self.multiplier)
         self.wcidLayer8 = Up4(l8, self.multiplier)
-        
+
         self.high_level_ch = self.wcidLayer7.out_channels
 
         se_layer = {}
@@ -135,7 +130,7 @@ class WCID_SE_block(nn.Module):
 
         x7 = self.wcidLayer7(x6_se)
         x7_se = self.se_layer["se_7"](x7)
-        
+
         x8 = self.wcidLayer8(x7_se)
         x8_se = self.se_layer["se_8"](x8)
 
@@ -153,18 +148,18 @@ class WCID(nn.Module):
         self.wcid = WCID_block(num_classes=num_classes)
 
     def forward(self, inputs):
-        x = inputs['images']
+        x = inputs["images"]
 
         _, prediction = self.wcid(x)
         output_dict = {}
-        
+
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(prediction, gts)
             return loss
         else:
-            output_dict['pred'] = prediction
+            output_dict["pred"] = prediction
             return output_dict
 
 
@@ -178,66 +173,19 @@ class WCID_SE(nn.Module):
         self.wcid = WCID_SE_block(num_classes=num_classes, se_reduction=se_reduction)
 
     def forward(self, inputs):
-        x = inputs['images']
+        x = inputs["images"]
 
         _, prediction = self.wcid(x)
         output_dict = {}
-        
+
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(prediction, gts)
             return loss
         else:
-            output_dict['pred'] = prediction
+            output_dict["pred"] = prediction
             return output_dict
-
-
-class WCID_mscale(MscaleBase):
-    def __init__(self, num_classes, criterion=None):
-        super(WCID_mscale, self).__init__()
-
-        self.criterion = criterion
-
-        self.wcid = WCID_block(num_classes=num_classes)
-        self.high_level_ch = self.wcid.high_level_ch
-
-        self.scale_attn = old_make_attn_head(
-            in_ch=self.high_level_ch*2, bot_ch=self.high_level_ch//2 ,out_ch=1)
-        
-
-    def _fwd(self, x):
-        # x_size = x.size()[2:]
-
-        pre_seg_head, final = self.wcid(x)
-
-        # attn = self.scale_attn(pre_seg_head)
-
-        # final = Upsample(final, x_size)
-        # attn = Upsample(attn, x_size)
-
-        return final, pre_seg_head
-
-
-class WCID_SE_mscale(MscaleBase):
-    def __init__(self, num_classes, criterion=None):
-        super(WCID_SE_mscale, self).__init__()
-
-        self.criterion = criterion
-        se_reduction = 8
-
-        self.wcid = WCID_SE_block(num_classes=num_classes, se_reduction=se_reduction)
-                    
-        self.high_level_ch = self.wcid.high_level_ch
-
-        self.scale_attn = old_make_attn_head(
-            in_ch=self.high_level_ch*2, bot_ch=self.high_level_ch//2, out_ch=1)
-        
-
-    def _fwd(self, x):
-        pre_seg_head, final = self.wcid(x)
-
-        return final, pre_seg_head
 
 
 class Conv2d_ReLu(nn.Module):
@@ -400,8 +348,12 @@ class upsample(nn.Module):
     def __init__(self):
         super().__init__()
 
-        self.up = nn.Upsample(scale_factor=2)
-        # self.up = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+        if cfg.MODEL.BILINEAR:
+            self.up = nn.Upsample(
+                scale_factor=2, mode="bilinear", align_corners=cfg.MODEL.ALIGN_CORNERS
+            )
+        else:
+            self.up = nn.Upsample(scale_factor=2)
 
     def forward(self, x):
         return self.up(x)
@@ -503,6 +455,7 @@ class Up4(nn.Module):
 
         return x
 
+
 class ChannelSELayer(nn.Module):
     # original source: https://github.com/xmu-xiaoma666/External-Attention-pytorch/blob/master/model/attention/SEAttention.py
     # some changes were made by Steven Chumak
@@ -549,27 +502,26 @@ class ChannelSELayer(nn.Module):
         return x * y.expand_as(x)
 
 
-def init_weight(model):
-    model_dict = model.state_dict()
+# def init_weight(model):
+#     model_dict = model.state_dict()
 
-    pretrained_path = "/home/s0559816/Desktop/wcid-pytorch/logs/best_runs/channel_augmented-puma_2022.01.04_05.55/720x304/channel_8/bs_2/nearest/1/best_ego.pth"
-    # Load state_dict
-    torch_ = torch.load(pretrained_path, map_location={'cuda:0': 'cpu'})
-    try:
-        pretrained_dict = torch_["state_dict"]
-    except:
-        pretrained_dict = torch_
+#     # Load state_dict
+#     torch_ = torch.load(pretrained_path, map_location={"cuda:0": "cpu"})
+#     try:
+#         pretrained_dict = torch_["state_dict"]
+#     except:
+#         pretrained_dict = torch_
 
-    # 1. filter out unnecessary keys
-    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-    # 2. overwrite entries in the existing state dict
-    model_dict.update(pretrained_dict) 
-    # 3. load the new state dict
-    model.load_state_dict(model_dict)
+#     # 1. filter out unnecessary keys
+#     pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+#     # 2. overwrite entries in the existing state dict
+#     model_dict.update(pretrained_dict)
+#     # 3. load the new state dict
+#     model.load_state_dict(model_dict)
 
-    logx.msg('=> loading pretrained model {}'.format(pretrained_path))
+#     logx.msg("=> loading pretrained model {}".format(pretrained_path))
 
-    return model
+#     return model
 
 
 def wcid(num_classes, criterion):
@@ -577,17 +529,8 @@ def wcid(num_classes, criterion):
     # model = init_weight(model)
     return model
 
+
 def wcid_se(num_classes, criterion):
-    model = WCID_SE(num_classes=num_classes, criterion=criterion)  
-    # model = init_weight(model)
-    return model
-
-def wcid_mscale(num_classes, criterion):
-    model = WCID_mscale(num_classes=num_classes, criterion=criterion)
-    # model = init_weight(model)
-    return model
-
-def wcid_se_mscale(num_classes, criterion):
-    model = WCID_SE_mscale(num_classes=num_classes, criterion=criterion)
+    model = WCID_SE(num_classes=num_classes, criterion=criterion)
     # model = init_weight(model)
     return model

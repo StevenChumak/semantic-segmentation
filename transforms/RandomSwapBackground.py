@@ -1,19 +1,20 @@
-from typing import Union, List, Tuple
 import pathlib
 import random
+from typing import List, Tuple, Union
 
 import cv2
 import numpy as np
-from PIL import Image
 from numpy.lib.type_check import imag
+from PIL import Image
 
 
 def swap_background(
     image,
     mask,
     background,
-    normalized = False,
-    type = "uint8",
+    normalized=False,
+    outputPIL=True,
+    type="uint8",
 ):
     """
     Blend in random background image.
@@ -44,6 +45,9 @@ def swap_background(
         msk_arr = np.array(mask).astype(bool).astype(np.uint8)
 
         bg_arr = np.array(background)
+        # Convert RGB input to cv2 native color order
+        bg_arr = cv2.cvtColor(bg_arr, cv2.COLOR_RGB2BGR)
+
         fg_size = tuple(reversed(fg_arr.shape[:2]))
         # different interpolation for upscaling/downscaling
         if bg_arr.size < fg_arr.size:
@@ -51,7 +55,7 @@ def swap_background(
         else:
             bg_arr = cv2.resize(bg_arr, fg_size, interpolation=cv2.INTER_AREA)
         # Invert mask and spread contrast
-        
+
         msk_arr = 255 - msk_arr * 255
 
         # Calculate distance to label and min max scale
@@ -61,7 +65,7 @@ def swap_background(
         # TODO: Clean solution for zero division case.
         if (dist_arr.max() - dist_arr.min()) > 0:
             dist_arr = (dist_arr - dist_arr.min()) / (dist_arr.max() - dist_arr.min())
-        else:            
+        else:
             return image
         dist_arr = np.stack([dist_arr] * 3, axis=2)
 
@@ -82,10 +86,10 @@ def swap_background(
             # Back to float32 range.
             blended = (blended).astype(np.float32)
 
-
         # Convert cv2 native color order to RGB
-        blended = cv2.cvtColor(blended, cv2.COLOR_BGR2RGB)
-        blended = Image.fromarray(blended).convert("RGB")
+        if outputPIL:
+            blended = cv2.cvtColor(blended, cv2.COLOR_BGR2RGB)
+            blended = Image.fromarray(blended)
 
     # Do not apply augmentation
     else:

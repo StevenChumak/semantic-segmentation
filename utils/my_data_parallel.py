@@ -35,12 +35,13 @@
 
 
 import operator
-import torch
 import warnings
+
+import torch
 from torch.nn.modules import Module
-from torch.nn.parallel.scatter_gather import scatter_kwargs, gather
-from torch.nn.parallel.replicate import replicate
 from torch.nn.parallel.parallel_apply import parallel_apply
+from torch.nn.parallel.replicate import replicate
+from torch.nn.parallel.scatter_gather import gather, scatter_kwargs
 
 
 def _check_balance(device_ids):
@@ -57,7 +58,9 @@ def _check_balance(device_ids):
         min_pos, min_val = min(enumerate(values), key=operator.itemgetter(1))
         max_pos, max_val = max(enumerate(values), key=operator.itemgetter(1))
         if min_val / max_val < 0.75:
-            warnings.warn(imbalance_warn.format(device_ids[min_pos], device_ids[max_pos]))
+            warnings.warn(
+                imbalance_warn.format(device_ids[min_pos], device_ids[max_pos])
+            )
             return True
         return False
 
@@ -67,8 +70,15 @@ def _check_balance(device_ids):
         return
 
 
-
-def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, module_kwargs=None, gather=True):
+def data_parallel(
+    module,
+    inputs,
+    device_ids=None,
+    output_device=None,
+    dim=0,
+    module_kwargs=None,
+    gather=True,
+):
     """
     Evaluates module(input) in parallel across the GPUs given in device_ids.
     This is the functional version of the DataParallel module.
@@ -94,14 +104,13 @@ def data_parallel(module, inputs, device_ids=None, output_device=None, dim=0, mo
     inputs, module_kwargs = scatter_kwargs(inputs, module_kwargs, device_ids, dim)
     if len(device_ids) == 1:
         return module(*inputs[0], **module_kwargs[0])
-    used_device_ids = device_ids[:len(inputs)]
+    used_device_ids = device_ids[: len(inputs)]
     replicas = replicate(module, used_device_ids)
     outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
     if gather:
         return gather(outputs, output_device, dim)
     else:
         return outputs
-
 
 
 class MyDataParallel(Module):
@@ -182,7 +191,7 @@ class MyDataParallel(Module):
         inputs, kwargs = self.scatter(inputs, kwargs, self.device_ids)
         if len(self.device_ids) == 1:
             return [self.module(*inputs[0], **kwargs[0])]
-        replicas = self.replicate(self.module, self.device_ids[:len(inputs)])
+        replicas = self.replicate(self.module, self.device_ids[: len(inputs)])
         outputs = self.parallel_apply(replicas, inputs, kwargs)
         if self.gather_bool:
             return self.gather(outputs, self.output_device)
@@ -196,8 +205,9 @@ class MyDataParallel(Module):
         return scatter_kwargs(inputs, kwargs, device_ids, dim=self.dim)
 
     def parallel_apply(self, replicas, inputs, kwargs):
-        return parallel_apply(replicas, inputs, kwargs, self.device_ids[:len(replicas)])
+        return parallel_apply(
+            replicas, inputs, kwargs, self.device_ids[: len(replicas)]
+        )
 
     def gather(self, outputs, output_device):
         return gather(outputs, output_device, dim=self.dim)
-

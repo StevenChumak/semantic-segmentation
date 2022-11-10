@@ -1,42 +1,44 @@
+import functools
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from runx.logx import logx
-import functools
+
 
 class Attention_block(nn.Module):
     # source: https://github.com/LeeJunHyun/Image_Segmentation/blob/master/network.py
     # paper: https://arxiv.org/pdf/1804.03999.pdf
-        
-    def __init__(self,F_g,F_l,F_int):
-        super(Attention_block,self).__init__()
+
+    def __init__(self, F_g, F_l, F_int):
+        super(Attention_block, self).__init__()
         self.W_g = nn.Sequential(
-            nn.Conv2d(F_g, F_int, kernel_size=1,stride=1,padding=0,bias=True),
-            nn.BatchNorm2d(F_int)
-            )
-        
+            nn.Conv2d(F_g, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(F_int),
+        )
+
         self.W_x = nn.Sequential(
-            nn.Conv2d(F_l, F_int, kernel_size=1,stride=1,padding=0,bias=True),
-            nn.BatchNorm2d(F_int)
+            nn.Conv2d(F_l, F_int, kernel_size=1, stride=1, padding=0, bias=True),
+            nn.BatchNorm2d(F_int),
         )
 
         self.psi = nn.Sequential(
-            nn.Conv2d(F_int, 1, kernel_size=1,stride=1,padding=0,bias=True),
+            nn.Conv2d(F_int, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.BatchNorm2d(1),
-            nn.Sigmoid()
+            nn.Sigmoid(),
         )
-        
+
         self.relu = nn.ReLU()
-        
-    def forward(self,g,x):
+
+    def forward(self, g, x):
         g1 = self.W_g(g)
         x1 = self.W_x(x)
-        psi = self.relu(g1+x1)
+        psi = self.relu(g1 + x1)
         psi = self.psi(psi)
 
-        return x*psi
-    
-    
+        return x * psi
+
+
 class TestNet_block(nn.Module):
     def __init__(
         self,
@@ -55,9 +57,9 @@ class TestNet_block(nn.Module):
         d3 = [d2[-1], 64, 64]
         d4 = [d3[-1], 64, 64]
         d5 = [d4[-1], 128, 128]
-        
+
         neck = [d5[-1], 256, d5[-1]]
-        
+
         u1 = [d5[-1], d5[-2], d5[-2]]
         u2 = [u1[-1], d4[-2], d4[-2]]
         u3 = [u2[-1], d3[-2], d3[-2]]
@@ -67,31 +69,78 @@ class TestNet_block(nn.Module):
         # Convolution
         self.down1 = Down(d1, [3, 3], self.se_type, self.se_reduction, dw=False)
         self.down2 = Down(d2, [5, 3], self.se_type, self.se_reduction, dw=False)
-        self.down3 = Down(d3, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
-        self.down4 = Down(d4, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
-        self.down5 = Down(d5, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
-        
-        self.bneck = BNeck(neck, [3, 3], self.se_type, self.se_reduction, reduce=False, dw=True)
+        self.down3 = Down(
+            d3, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True
+        )
+        self.down4 = Down(
+            d4, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True
+        )
+        self.down5 = Down(
+            d5, [5, 3], self.se_type, self.se_reduction, reduce=False, dw=True
+        )
 
-        self.up1 = Up(u1, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down5.out_channels)
-        self.up2 = Up(u2, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down4.out_channels)
-        self.up3 = Up(u3, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down3.out_channels)
-        self.up4 = Up(u4, [3, 5], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down2.out_channels)
-        self.up5 = Up(u5, [3, 3], self.se_type, self.se_reduction, reduce=False, dw=False, UNet=self.down1.out_channels)
+        self.bneck = BNeck(
+            neck, [3, 3], self.se_type, self.se_reduction, reduce=False, dw=True
+        )
 
+        self.up1 = Up(
+            u1,
+            [3, 5],
+            self.se_type,
+            self.se_reduction,
+            reduce=False,
+            dw=False,
+            UNet=self.down5.out_channels,
+        )
+        self.up2 = Up(
+            u2,
+            [3, 5],
+            self.se_type,
+            self.se_reduction,
+            reduce=False,
+            dw=False,
+            UNet=self.down4.out_channels,
+        )
+        self.up3 = Up(
+            u3,
+            [3, 5],
+            self.se_type,
+            self.se_reduction,
+            reduce=False,
+            dw=False,
+            UNet=self.down3.out_channels,
+        )
+        self.up4 = Up(
+            u4,
+            [3, 5],
+            self.se_type,
+            self.se_reduction,
+            reduce=False,
+            dw=False,
+            UNet=self.down2.out_channels,
+        )
+        self.up5 = Up(
+            u5,
+            [3, 3],
+            self.se_type,
+            self.se_reduction,
+            reduce=False,
+            dw=False,
+            UNet=self.down1.out_channels,
+        )
 
         self.second_out_channels = self.up4.out_channels
         self.out_channels = self.up5.out_channels
 
         self._init_weights()
-        
+
     def forward(self, x):
         d1, d1_b = self.down1(x)
         d2, d2_b = self.down2(d1)
         d3, d3_b = self.down3(d2)
         d4, d4_b = self.down4(d3)
         d5, d5_b = self.down5(d4)
-        
+
         d5 = self.bneck(d5)
 
         u1 = self.up1(d5, d5_b)
@@ -100,9 +149,8 @@ class TestNet_block(nn.Module):
         u4 = self.up4(u3, d2_b)
         u5 = self.up5(u4, d1_b)
 
-
         return u4, u5
-    
+
     def _init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -116,7 +164,7 @@ class TestNet_block(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-    
+
 
 class TestNet(nn.Module):
     def __init__(
@@ -135,7 +183,7 @@ class TestNet(nn.Module):
 
         ####################################################################################
         self.testNet = TestNet_block(self.se_type, self.se_reduction)
-        
+
         self.second_out_channels = self.testNet.second_out_channels
         self.high_level_ch = self.testNet.out_channels
 
@@ -143,16 +191,16 @@ class TestNet(nn.Module):
 
     def forward(self, x_in):
 
-        _, out = self.testNet(x_in)       
-        # prediction = self.out(out)          
-        
+        _, out = self.testNet(x_in)
+        # prediction = self.out(out)
+
         return None, None, out
- 
-    
+
+
 class DWConv(nn.Module):
     def __init__(self, fm_in, fm_out, kernel):
         super().__init__()
-        self.layer = nn.Sequential()  
+        self.layer = nn.Sequential()
         self.layer.add_module(
             "convDW",
             nn.Conv2d(
@@ -160,7 +208,7 @@ class DWConv(nn.Module):
                 fm_in,
                 kernel_size=kernel,
                 stride=1,
-                padding=kernel// 2,
+                padding=kernel // 2,
                 groups=fm_in,
             ),
         )
@@ -169,28 +217,30 @@ class DWConv(nn.Module):
         )
         self.layer.add_module("bnDW", nn.BatchNorm2d(fm_out))
         self.layer.add_module("reluDW", nn.ReLU())
-        
+
     def forward(self, x):
         return self.layer(x)
-        
+
 
 class ConvBlock(nn.Module):
     def __init__(self, fm_in, fm_out, multiplier, kernel, reduce=False, dw=False):
         super().__init__()
-        self.layer = nn.Sequential()  
-        
+        self.layer = nn.Sequential()
+
         if reduce:
-            mid = fm_in//multiplier
-            
+            mid = fm_in // multiplier
+
             self.layer.add_module(
                 "convReduce", nn.Conv2d(fm_in, mid, kernel_size=1, stride=1, padding=0)
             )
         else:
-            mid=fm_in
+            mid = fm_in
 
         if dw:
-            self.layer.add_module("convDW", DWConv(fm_in=mid, fm_out=fm_out, kernel=kernel))
-        
+            self.layer.add_module(
+                "convDW", DWConv(fm_in=mid, fm_out=fm_out, kernel=kernel)
+            )
+
         else:
             self.layer.add_module(
                 "conv",
@@ -199,50 +249,67 @@ class ConvBlock(nn.Module):
                     fm_out,
                     kernel_size=kernel,
                     stride=1,
-                    padding=kernel// 2,
+                    padding=kernel // 2,
                     groups=1,
                 ),
             )
             self.layer.add_module("bn", nn.BatchNorm2d(fm_out))
             self.layer.add_module("relu", nn.ReLU())
-            
 
     def forward(self, x):
         return self.layer(x)
 
 
 class NConv(nn.Module):
-    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
+    def __init__(
+        self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False
+    ):
         super().__init__()
         self.layer = nn.Sequential()
-        
+
         self.residual = fm_list[0] == fm_list[-1]
 
         for i in range(0, len(kernel_list)):
-            self.layer.add_module(f"conv_block{i}", ConvBlock(fm_list[i], fm_list[i+1], multiplier=2, kernel=kernel_list[i], reduce=reduce, dw=dw,))
-            
-        if se_type == 'channel':
-            self.layer.add_module("se", ChannelSELayer(fm_list[-1], reduction_ratio=se_reduction))
-        elif se_type == 'cbam':
+            self.layer.add_module(
+                f"conv_block{i}",
+                ConvBlock(
+                    fm_list[i],
+                    fm_list[i + 1],
+                    multiplier=2,
+                    kernel=kernel_list[i],
+                    reduce=reduce,
+                    dw=dw,
+                ),
+            )
+
+        if se_type == "channel":
+            self.layer.add_module(
+                "se", ChannelSELayer(fm_list[-1], reduction_ratio=se_reduction)
+            )
+        elif se_type == "cbam":
             self.layer.add_module("se", CBAM(fm_list[-1], reduction_ratio=se_reduction))
         else:
             logx.msg(f"{se_type} is not supported")
 
     def forward(self, x):
         x_out = self.layer(x)
-        
+
         if self.residual:
             x_out += x
-        
+
         return x_out
 
 
 class Down(nn.Module):
-    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
+    def __init__(
+        self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False
+    ):
         super().__init__()
-        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
+        self.nConv = NConv(
+            fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw
+        )
         self.maxPool = nn.MaxPool2d(kernel_size=2)
-        
+
         self.out_channels = fm_list[-1]
 
     def forward(self, x):
@@ -254,11 +321,15 @@ class Down(nn.Module):
 
 
 class BNeck(nn.Module):
-    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False):
+    def __init__(
+        self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False
+    ):
         super().__init__()
-        
-        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
-        
+
+        self.nConv = NConv(
+            fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw
+        )
+
         self.out_channels = fm_list[-1]
 
     def forward(self, x):
@@ -279,29 +350,44 @@ class Upsample(nn.Module):
 
 
 class Up(nn.Module):
-    def __init__(self, fm_list, kernel_list, se_type, se_reduction, reduce=False, dw=False, UNet=0,):
+    def __init__(
+        self,
+        fm_list,
+        kernel_list,
+        se_type,
+        se_reduction,
+        reduce=False,
+        dw=False,
+        UNet=0,
+    ):
         super().__init__()
 
         self.up = Upsample()
-        self.UNet=UNet
-        
-        if self.UNet>0:
-            self.attention= Attention_block(fm_list[0], self.UNet, (fm_list[0] + self.UNet)//4)
+        self.UNet = UNet
+
+        if self.UNet > 0:
+            self.attention = Attention_block(
+                fm_list[0], self.UNet, (fm_list[0] + self.UNet) // 4
+            )
             fm_list[0] = fm_list[0] + self.UNet
-        
-        self.nConv = NConv(fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw)
+
+        self.nConv = NConv(
+            fm_list, kernel_list, se_type, se_reduction, reduce=reduce, dw=dw
+        )
 
         self.out_channels = fm_list[2]
 
     def forward(self, small, big):
 
         x1 = self.up(small)
-        if self.UNet>0:
+        if self.UNet > 0:
             # from: https://github.com/milesial/Pytorch-UNet/blob/master/unet/unet_parts.py
             diffY = big.size()[2] - x1.size()[2]
             diffX = big.size()[3] - x1.size()[3]
 
-            x1 = F.pad(x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2])
+            x1 = F.pad(
+                x1, [diffX // 2, diffX - diffX // 2, diffY // 2, diffY - diffY // 2]
+            )
             # if you have padding issues, see
             # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a
             # https://github.com/xiaopeng-liao/Pytorch-UNet/commit/8ebac70e633bac59fc22bb5195e513d5832fb3bd
@@ -375,7 +461,7 @@ class ChannelSELayer(nn.Module):
                 nn.init.normal_(m.weight, std=0.001)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-                    
+
 
 def testnet(num_classes, criterion):
     model = TestNet(n_classes=num_classes, criterion=criterion)

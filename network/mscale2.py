@@ -34,17 +34,17 @@ features from both lower and higher resolution images into the attention head.
 import torch
 from torch import nn
 
-from network.mynn import initialize_weights, Norm2d, Upsample
-from network.mynn import ResizeX, scale_as
-from network.utils import get_aspp, get_trunk
-from network.utils import make_seg_head, make_attn_head
 from config import cfg
+from network.mynn import (Norm2d, ResizeX, Upsample, initialize_weights,
+                          scale_as)
+from network.utils import get_aspp, get_trunk, make_attn_head, make_seg_head
 
 
 class MscaleBase(nn.Module):
     """
     Multi-scale attention segmentation model base class
     """
+
     def __init__(self):
         super(MscaleBase, self).__init__()
         self.criterion = None
@@ -78,9 +78,9 @@ class MscaleBase(nn.Module):
         Output:
           If training, return loss, else return prediction + attention
         """
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
 
-        assert 1.0 in scales, 'expected 1.0 to be the target scale'
+        assert 1.0 in scales, "expected 1.0 to be the target scale"
         # Lower resolution provides attention for higher rez predictions,
         # so we evaluate in order: high to low
         scales = sorted(scales, reverse=True)
@@ -117,19 +117,18 @@ class MscaleBase(nn.Module):
             last_feats = feats
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(pred, gts)
             return loss
         else:
             # FIXME: should add multi-scale values for pred and attn
-            return {'pred': pred,
-                    'attn_10x': attn}
+            return {"pred": pred, "attn_10x": attn}
 
     def two_scale_forward(self, inputs):
-        assert 'images' in inputs
+        assert "images" in inputs
 
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
         x_lo = ResizeX(x_1x, cfg.MODEL.MSCALE_LO_SCALE)
 
         p_lo, feats_lo = self._fwd(x_lo)
@@ -146,14 +145,13 @@ class MscaleBase(nn.Module):
         joint_pred = p_lo + (1 - logit_attn) * p_1x
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(joint_pred, gts)
             return loss
         else:
             # FIXME: should add multi-scale values for pred and attn
-            return {'pred': joint_pred,
-                    'attn_10x': logit_attn}
+            return {"pred": joint_pred, "attn_10x": logit_attn}
 
     def forward(self, inputs):
         if cfg.MODEL.N_SCALES and not self.training:
@@ -166,13 +164,14 @@ class MscaleV3Plus(MscaleBase):
     """
     DeepLabV3Plus-based mscale segmentation model
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None):
+
+    def __init__(self, num_classes, trunk="wrn38", criterion=None):
         super(MscaleV3Plus, self).__init__()
         self.criterion = criterion
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=8)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8
+        )
         self.bot_fine = nn.Conv2d(s2_ch, 48, kernel_size=1, bias=False)
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
 
@@ -184,7 +183,8 @@ class MscaleV3Plus(MscaleBase):
             nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
             Norm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, num_classes, kernel_size=1, bias=False))
+            nn.Conv2d(256, num_classes, kernel_size=1, bias=False),
+        )
 
         # Scale-attention prediction head
         scale_in_ch = 2 * (256 + 48)
@@ -197,7 +197,8 @@ class MscaleV3Plus(MscaleBase):
             Norm2d(256),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, 1, kernel_size=1, bias=False),
-            nn.Sigmoid())
+            nn.Sigmoid(),
+        )
 
         if cfg.OPTIONS.INIT_DECODER:
             initialize_weights(self.bot_fine)
@@ -225,27 +226,28 @@ class MscaleV3Plus(MscaleBase):
 
 
 def DeepV3R50(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='resnet-50', criterion=criterion)
+    return MscaleV3Plus(num_classes, trunk="resnet-50", criterion=criterion)
 
 
 class Basic(MscaleBase):
-    """
-    """
-    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
+    """ """
+
+    def __init__(self, num_classes, trunk="hrnetv2", criterion=None):
         super(Basic, self).__init__()
         self.criterion = criterion
         self.backbone, _, _, high_level_ch = get_trunk(
-            trunk_name=trunk, output_stride=8)
+            trunk_name=trunk, output_stride=8
+        )
 
-        self.cls_head = make_seg_head(in_ch=high_level_ch, bot_ch=256,
-                                      out_ch=num_classes)
-        self.scale_attn = make_attn_head(in_ch=high_level_ch * 2, bot_ch=256,
-                                         out_ch=1)
+        self.cls_head = make_seg_head(
+            in_ch=high_level_ch, bot_ch=256, out_ch=num_classes
+        )
+        self.scale_attn = make_attn_head(in_ch=high_level_ch * 2, bot_ch=256, out_ch=1)
 
     def two_scale_forward(self, inputs):
-        assert 'images' in inputs
+        assert "images" in inputs
 
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
         x_lo = ResizeX(x_1x, cfg.MODEL.MSCALE_LO_SCALE)
 
         p_lo, feats_lo = self._fwd(x_lo)
@@ -262,8 +264,8 @@ class Basic(MscaleBase):
         joint_pred = p_lo + (1 - logit_attn_1x) * p_1x
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(joint_pred, gts)
             return loss
         else:
@@ -278,5 +280,4 @@ class Basic(MscaleBase):
 
 
 def HRNet(num_classes, criterion, s2s4=None):
-    return Basic(num_classes=num_classes, criterion=criterion,
-                 trunk='hrnetv2')
+    return Basic(num_classes=num_classes, criterion=criterion, trunk="hrnetv2")

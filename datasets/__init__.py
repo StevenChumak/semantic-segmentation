@@ -31,14 +31,14 @@ Dataset setup and loaders
 """
 
 import importlib
+
 import torchvision.transforms as standard_transforms
+from runx.logx import logx
+from torch.utils.data import DataLoader
 
 import transforms.joint_transforms as joint_transforms
 import transforms.transforms as extended_transforms
-from torch.utils.data import DataLoader
-
 from config import cfg, update_dataset_cfg, update_dataset_inst
-from runx.logx import logx
 from datasets.randaugment import RandAugment
 
 
@@ -50,40 +50,45 @@ def setup_loaders(args):
     """
 
     # TODO add error checking to make sure class exists
-    logx.msg(f'dataset = {args.dataset}')
+    logx.msg(f"dataset = {args.dataset}")
 
-    mod = importlib.import_module('datasets.{}'.format(args.dataset))
-    dataset_cls = getattr(mod, 'Loader')
+    mod = importlib.import_module("datasets.{}".format(args.dataset))
+    dataset_cls = getattr(mod, "Loader")
 
-    logx.msg(f'ignore_label = {dataset_cls.ignore_label}')
+    logx.msg(f"ignore_label = {dataset_cls.ignore_label}")
 
-    update_dataset_cfg(num_classes=dataset_cls.num_classes,
-                       ignore_label=dataset_cls.ignore_label)
+    update_dataset_cfg(
+        num_classes=dataset_cls.num_classes, ignore_label=dataset_cls.ignore_label
+    )
 
     ######################################################################
     # Define transformations, augmentations
     ######################################################################
 
     # Joint transformations that must happen on both image and mask
-    if ',' in args.crop_size:
-        args.crop_size = [int(x) for x in args.crop_size.split(',')]
+    if "," in args.crop_size:
+        args.crop_size = [int(x) for x in args.crop_size.split(",")]
     else:
         args.crop_size = int(args.crop_size)
     train_joint_transform_list = [
         # TODO FIXME: move these hparams into cfg
-        joint_transforms.RandomSizeAndCrop(args.crop_size,
-                                           False,
-                                           scale_min=args.scale_min,
-                                           scale_max=args.scale_max,
-                                           full_size=args.full_crop_training,
-                                           pre_size=args.pre_size)]
-    train_joint_transform_list.append(
-        joint_transforms.RandomHorizontallyFlip())
+        joint_transforms.RandomSizeAndCrop(
+            args.crop_size,
+            False,
+            scale_min=args.scale_min,
+            scale_max=args.scale_max,
+            full_size=args.full_crop_training,
+            pre_size=args.pre_size,
+        )
+    ]
+    train_joint_transform_list.append(joint_transforms.RandomHorizontallyFlip())
+    train_joint_transform_list.append(joint_transforms.RandomRotate(0.2))
 
     if args.rand_augment is not None:
-        N, M = [int(i) for i in args.rand_augment.split(',')]
-        assert isinstance(N, int) and isinstance(M, int), \
-            f'Either N {N} or M {M} not integer'
+        N, M = [int(i) for i in args.rand_augment.split(",")]
+        assert isinstance(N, int) and isinstance(
+            M, int
+        ), f"Either N {N} or M {M} not integer"
         train_joint_transform_list.append(RandAugment(N, M))
 
     ######################################################################
@@ -92,37 +97,37 @@ def setup_loaders(args):
     train_input_transform = []
 
     if args.color_aug:
-        train_input_transform += [extended_transforms.ColorJitter(
-            brightness=args.color_aug,
-            contrast=args.color_aug,
-            saturation=args.color_aug,
-            hue=args.color_aug)]
+        train_input_transform += [
+            extended_transforms.ColorJitter(
+                brightness=(0.2), contrast=(0.2), saturation=0, hue=0
+            )
+        ]
     if args.bblur:
         train_input_transform += [extended_transforms.RandomBilateralBlur()]
     elif args.gblur:
         train_input_transform += [extended_transforms.RandomGaussianBlur()]
 
     mean_std = (cfg.DATASET.MEAN, cfg.DATASET.STD)
-    train_input_transform += [standard_transforms.ToTensor(),
-                              standard_transforms.Normalize(*mean_std)]
+    train_input_transform += [
+        standard_transforms.ToTensor(),
+        standard_transforms.Normalize(*mean_std),
+    ]
     train_input_transform = standard_transforms.Compose(train_input_transform)
 
-    val_input_transform = standard_transforms.Compose([
-        standard_transforms.ToTensor(),
-        standard_transforms.Normalize(*mean_std)
-    ])
+    val_input_transform = standard_transforms.Compose(
+        [standard_transforms.ToTensor(), standard_transforms.Normalize(*mean_std)]
+    )
 
     target_transform = extended_transforms.MaskToTensor()
 
     if args.jointwtborder:
-        target_train_transform = \
-            extended_transforms.RelaxedBoundaryLossToTensor()
+        target_train_transform = extended_transforms.RelaxedBoundaryLossToTensor()
     else:
         target_train_transform = extended_transforms.MaskToTensor()
 
-    if args.eval == 'folder':
+    if args.eval == "folder":
         val_joint_transform_list = None
-    elif 'mapillary' in args.dataset:
+    elif "mapillary" in args.dataset:
         if args.pre_size is None:
             eval_size = 2177
         else:
@@ -130,21 +135,21 @@ def setup_loaders(args):
         if cfg.DATASET.MAPILLARY_CROP_VAL:
             val_joint_transform_list = [
                 joint_transforms.ResizeHeight(eval_size),
-                joint_transforms.CenterCropPad(eval_size)]
+                joint_transforms.CenterCropPad(eval_size),
+            ]
         else:
-            val_joint_transform_list = [
-                joint_transforms.Scale(eval_size)]
+            val_joint_transform_list = [joint_transforms.Scale(eval_size)]
     else:
         val_joint_transform_list = None
 
-    if args.eval is None or args.eval == 'val':
-        val_name = 'val'
-    elif args.eval == 'trn':
-        val_name = 'train'
-    elif args.eval == 'folder':
-        val_name = 'folder'
+    if args.eval is None or args.eval == "val":
+        val_name = "val"
+    elif args.eval == "trn":
+        val_name = "train"
+    elif args.eval == "folder":
+        val_name = "folder"
     else:
-        raise 'unknown eval mode {}'.format(args.eval)
+        raise "unknown eval mode {}".format(args.eval)
 
     ######################################################################
     # Create loaders
@@ -154,21 +159,28 @@ def setup_loaders(args):
         joint_transform_list=val_joint_transform_list,
         img_transform=val_input_transform,
         label_transform=target_transform,
-        eval_folder=args.eval_folder)
+        eval_folder=args.eval_folder,
+    )
 
     update_dataset_inst(dataset_inst=val_set)
 
     if args.apex:
         from datasets.sampler import DistributedSampler
-        val_sampler = DistributedSampler(val_set, pad=False, permutation=False,
-                                         consecutive_sample=False)
+
+        val_sampler = DistributedSampler(
+            val_set, pad=False, permutation=False, consecutive_sample=False
+        )
     else:
         val_sampler = None
 
-    val_loader = DataLoader(val_set, batch_size=args.bs_val,
-                            num_workers=args.num_workers // 2,
-                            shuffle=False, drop_last=False,
-                            sampler=val_sampler)
+    val_loader = DataLoader(
+        val_set,
+        batch_size=args.bs_val,
+        num_workers=args.num_workers // 2,
+        shuffle=False,
+        drop_last=False,
+        sampler=val_sampler,
+    )
 
     if args.eval is not None:
         # Don't create train dataloader if eval
@@ -176,26 +188,31 @@ def setup_loaders(args):
         train_loader = None
     else:
         train_set = dataset_cls(
-            mode='train',
+            mode="train",
             joint_transform_list=train_joint_transform_list,
             img_transform=train_input_transform,
             label_transform=target_train_transform,
             bg_swap=args.bg_swap,
-            )
+        )
 
         if args.apex:
             from datasets.sampler import DistributedSampler
-            train_sampler = DistributedSampler(train_set, pad=True,
-                                               permutation=True,
-                                               consecutive_sample=False)
+
+            train_sampler = DistributedSampler(
+                train_set, pad=True, permutation=True, consecutive_sample=False
+            )
             train_batch_size = args.bs_trn
         else:
             train_sampler = None
             train_batch_size = args.bs_trn * args.ngpu
 
-        train_loader = DataLoader(train_set, batch_size=train_batch_size,
-                                  num_workers=args.num_workers,
-                                  shuffle=(train_sampler is None),
-                                  drop_last=True, sampler=train_sampler)
+        train_loader = DataLoader(
+            train_set,
+            batch_size=train_batch_size,
+            num_workers=args.num_workers,
+            shuffle=(train_sampler is None),
+            drop_last=True,
+            sampler=train_sampler,
+        )
 
     return train_loader, val_loader, train_set

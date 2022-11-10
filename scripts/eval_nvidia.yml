@@ -1,26 +1,22 @@
 # Run Evaluation on Cityscapes with a pretrained model
-
 # CMD: "python -m torch.distributed.launch --nproc_per_node=8 train.py"
 CMD: "python train.py"
 
 HPARAMS: [
   {
-   dataset: xxx,
-   fp16: true,
-   bs_val: 1,
-   eval: val,
-   dump_assets: true,
-   dump_all_images: true,
-  #  dump_topn: 50,
-   n_scales: "0.5,1.0,2.0",
-   snapshot: "/home/s0559816/Desktop/semantic-segmentation/logs/train_xxx/ocrnet.HRNet_Mscale-400,800_handsome-chital_2022.03.22_13.42/best_checkpoint_ep53.pth",
-   result_dir: "/home/s0559816/Desktop/semantic-segmentation/logs/train_xxx/ocrnet.HRNet_Mscale-400,800_handsome-chital_2022.03.22_13.42/results",
-  #  eval_folder: "/home/s0559816/Desktop/dataset/assembled/assembled-1440-720-new/nearest/",
-  eval_folder: "/home/s0559816/Desktop/dataset2/800-400/nearest/test/",
+  dataset: se_perception,
+  fp16: true,
+  bs_val: 1,
+  # eval: folder,
+  eval: val,
+  dump_assets: true,
+  dump_all_images: true,
+  n_scales: "0.5,1.0,2.0",
+  # add paths to trained model, output dir and test dataset
+  snapshot:   "/home/s0559816/Desktop/semantic-segmentation/logs/train_xxx/ocrnet.HRNet_Mscale/540,960/120/_fierce-kagu_2022.11.01_12.14/best_checkpoint_ep15.pth",
+  result_dir:  "/home/s0559816/Desktop/semantic-segmentation/logs/train_xxx/ocrnet.HRNet_Mscale/540,960/120/_fierce-kagu_2022.11.01_12.14/test/",
+  eval_folder: "/home/s0559816/Desktop/finalDataset/960-540/test/",
+  # arch: ocrnet.HRNet,
   arch: ocrnet.HRNet_Mscale,
-  #  arch: wcid.wcid_se_mscale,
-  #  syncbn: true,
-  #  apex: true,
   },
 ]
-# 0-(33)-(12)-(33)

@@ -29,6 +29,7 @@ dependencies:
     - pyyaml>=5.1.1
     - coolname>=1.1.0
     - tabulate>=0.8.3
+    - setuptools==59.5.0
     - tensorboardX>=1.6
     - runx==0.0.6
 

@@ -29,44 +29,56 @@ POSSIBILITY OF SUCH DAMAGE.
 
 Null Loader
 """
-from config import cfg
-from runx.logx import logx
-from datasets.base_loader import BaseLoader
-from datasets.utils import make_dataset_folder
-from datasets import uniform
 import numpy as np
 import torch
+from runx.logx import logx
 from torch.utils import data
+
+from config import cfg
+from datasets import uniform
+from datasets.base_loader import BaseLoader
+from datasets.utils import make_dataset_folder
+
 
 class Loader(BaseLoader):
     """
     Null Dataset for Performance
     """
+
     num_classes = 19
     ignore_label = 255
     trainid_to_name = {}
     color_mapping = []
- 
-    def __init__(self, mode, quality=None, joint_transform_list=None,
-                 img_transform=None, label_transform=None, eval_folder=None):
-        super(Loader, self).__init__(quality=quality,
-                                     mode=mode,
-                                     joint_transform_list=joint_transform_list,
-                                     img_transform=img_transform,
-                                     label_transform=label_transform)
+
+    def __init__(
+        self,
+        mode,
+        quality=None,
+        joint_transform_list=None,
+        img_transform=None,
+        label_transform=None,
+        eval_folder=None,
+    ):
+        super(Loader, self).__init__(
+            quality=quality,
+            mode=mode,
+            joint_transform_list=joint_transform_list,
+            img_transform=img_transform,
+            label_transform=label_transform,
+        )
 
     def __getitem__(self, index):
         # return img, mask, img_name, scale_float
         crop_size = cfg.DATASET.CROP_SIZE
-        if ',' in crop_size:
-            crop_size = [int(x) for x in crop_size.split(',')]
+        if "," in crop_size:
+            crop_size = [int(x) for x in crop_size.split(",")]
         else:
             crop_size = int(crop_size)
             crop_size = [crop_size, crop_size]
-        
+
         img = torch.FloatTensor(np.zeros([3] + crop_size))
         mask = torch.LongTensor(np.zeros(crop_size))
-        img_name = f'img{index}'
+        img_name = f"img{index}"
         scale_float = 0.0
         return img, mask, img_name, scale_float
 

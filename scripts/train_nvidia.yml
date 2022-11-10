@@ -3,7 +3,7 @@ CMD: "python train.py"
 
 HPARAMS: [
   {
-   arch: wcid.wcid,
+   arch: ocrnet.HRNet_Mscale,
    result_dir: LOGDIR,
    dataset: se_perception,
   #  dataset: railsem19,
@@ -19,8 +19,8 @@ HPARAMS: [
   #  crop_size: "500,1000",
   #  class_uniform_tile: 100,
 
-   crop_size: "544,960",
-   class_uniform_tile: 136,
+   crop_size: "540,960",
+   class_uniform_tile: 120,
 
    scale_min: 0.8,
    scale_max: 1.2,
@@ -28,12 +28,12 @@ HPARAMS: [
    brt_aug: True,
    bg_swap: True,
 
-   rmi_loss: true,
+  #  rmi_loss: true,
 
   # rmi_loss does not work with fp16
-  #  fp16: true,
-  #  optimizer: "adam",
-  #  amsgrad: true,
+   fp16: true,
+   optimizer: "adam",
+   amsgrad: true,
 
   # does not work without apex's C++ extensions
   #  apex: true,

@@ -30,10 +30,10 @@ POSSIBILITY OF SUCH DAMAGE.
 import torch
 from torch import nn
 
-from network.mynn import initialize_weights, Norm2d, Upsample
-from network.mynn import ResizeX, scale_as
-from network.utils import get_aspp, get_trunk
 from config import cfg
+from network.mynn import (Norm2d, ResizeX, Upsample, initialize_weights,
+                          scale_as)
+from network.utils import get_aspp, get_trunk
 
 
 class ASDV3P(nn.Module):
@@ -48,17 +48,25 @@ class ASDV3P(nn.Module):
     train with 3 output scales: 0.5, 1.0, 2.0
     min/max scale aug set to [0.5, 1.0]
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None,
-                 use_dpc=False, fuse_aspp=False, attn_2b=False, bn_head=False):
+
+    def __init__(
+        self,
+        num_classes,
+        trunk="wrn38",
+        criterion=None,
+        use_dpc=False,
+        fuse_aspp=False,
+        attn_2b=False,
+        bn_head=False,
+    ):
         super(ASDV3P, self).__init__()
         self.criterion = criterion
         self.fuse_aspp = fuse_aspp
         self.attn_2b = attn_2b
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=8,
-                                          dpc=use_dpc)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8, dpc=use_dpc
+        )
         self.bot_fine = nn.Conv2d(s2_ch, 48, kernel_size=1, bias=False)
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
 
@@ -70,7 +78,8 @@ class ASDV3P(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
             Norm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, num_classes, kernel_size=1, bias=False))
+            nn.Conv2d(256, num_classes, kernel_size=1, bias=False),
+        )
 
         # Scale-attention prediction head
         assert cfg.MODEL.N_SCALES is not None
@@ -79,21 +88,24 @@ class ASDV3P(nn.Module):
         num_scales = len(self.scales)
         if cfg.MODEL.ATTNSCALE_BN_HEAD or bn_head:
             self.scale_attn = nn.Sequential(
-                nn.Conv2d(num_scales * (256 + 48), 256, kernel_size=3,
-                          padding=1, bias=False),
+                nn.Conv2d(
+                    num_scales * (256 + 48), 256, kernel_size=3, padding=1, bias=False
+                ),
                 Norm2d(256),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
                 Norm2d(256),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(256, num_scales, kernel_size=1, bias=False))
+                nn.Conv2d(256, num_scales, kernel_size=1, bias=False),
+            )
         else:
             self.scale_attn = nn.Sequential(
-                nn.Conv2d(num_scales * (256 + 48), 512, kernel_size=3,
-                          padding=1, bias=False),
+                nn.Conv2d(
+                    num_scales * (256 + 48), 512, kernel_size=3, padding=1, bias=False
+                ),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(512, num_scales, kernel_size=1, padding=1,
-                          bias=False))
+                nn.Conv2d(512, num_scales, kernel_size=1, padding=1, bias=False),
+            )
 
         if cfg.OPTIONS.INIT_DECODER:
             initialize_weights(self.bot_fine)
@@ -111,8 +123,7 @@ class ASDV3P(nn.Module):
         s2_features, _, final_features = self.backbone(x)
         aspp = self.aspp(final_features)
 
-        if self.fuse_aspp and \
-           aspp_lo is not None and aspp_attn is not None:
+        if self.fuse_aspp and aspp_lo is not None and aspp_attn is not None:
             aspp_attn = scale_as(aspp_attn, aspp)
             aspp_lo = scale_as(aspp_lo, aspp)
             aspp = aspp_attn * aspp_lo + (1 - aspp_attn) * aspp
@@ -132,10 +143,10 @@ class ASDV3P(nn.Module):
         Combine multiple scales of predictions together with attention
         predicted jointly off of multi-scale features.
         """
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
 
         # run 1x scale
-        assert 1.0 in self.scales, 'expected one of scales to be 1.0'
+        assert 1.0 in self.scales, "expected one of scales to be 1.0"
         ps = {}
         ps[1.0], feats_1x = self._fwd(x_1x)
         concat_feats = [feats_1x]
@@ -155,7 +166,7 @@ class ASDV3P(nn.Module):
 
         output = None
         for idx, scale in enumerate(self.scales):
-            attn = attn_tensor[:, idx:idx+1, :, :]
+            attn = attn_tensor[:, idx : idx + 1, :, :]
             attn_1x_scale = scale_as(attn, x_1x)
             if output is None:
                 # logx.msg(f'ps[scale] shape {ps[scale].shape} '
@@ -165,8 +176,8 @@ class ASDV3P(nn.Module):
                 output += ps[scale] * attn_1x_scale
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(output, gts)
 
             if cfg.LOSS.SUPERVISED_MSCALE_WT:
@@ -179,21 +190,20 @@ class ASDV3P(nn.Module):
 
     def forward(self, inputs):
         # FIXME: could add other assets for visualization
-        return {'pred': self._forward_fused(inputs)}
+        return {"pred": self._forward_fused(inputs)}
 
 
 def DeepV3R50(num_classes, criterion):
-    return ASDV3P(num_classes, trunk='resnet-50', criterion=criterion)
+    return ASDV3P(num_classes, trunk="resnet-50", criterion=criterion)
 
 
 # Batch-norm head
 def DeepV3R50B(num_classes, criterion):
-    return ASDV3P(num_classes, trunk='resnet-50', criterion=criterion,
-                  bn_head=True)
+    return ASDV3P(num_classes, trunk="resnet-50", criterion=criterion, bn_head=True)
 
 
 def DeepV3W38(num_classes, criterion):
-    return ASDV3P(num_classes, trunk='wrn38', criterion=criterion)
+    return ASDV3P(num_classes, trunk="wrn38", criterion=criterion)
 
 
 class ASDV3P_Paired(nn.Module):
@@ -208,17 +218,25 @@ class ASDV3P_Paired(nn.Module):
     train with 3 output scales: 0.5, 1.0, 2.0
     min/max scale aug set to [0.5, 1.0]
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None,
-                 use_dpc=False, fuse_aspp=False, attn_2b=False, bn_head=False):
+
+    def __init__(
+        self,
+        num_classes,
+        trunk="wrn38",
+        criterion=None,
+        use_dpc=False,
+        fuse_aspp=False,
+        attn_2b=False,
+        bn_head=False,
+    ):
         super(ASDV3P_Paired, self).__init__()
         self.criterion = criterion
         self.fuse_aspp = fuse_aspp
         self.attn_2b = attn_2b
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=8,
-                                          dpc=use_dpc)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8, dpc=use_dpc
+        )
         self.bot_fine = nn.Conv2d(s2_ch, 48, kernel_size=1, bias=False)
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
 
@@ -230,7 +248,8 @@ class ASDV3P_Paired(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
             Norm2d(256),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, num_classes, kernel_size=1, bias=False))
+            nn.Conv2d(256, num_classes, kernel_size=1, bias=False),
+        )
 
         # Scale-attention prediction head
         assert cfg.MODEL.N_SCALES is not None
@@ -240,22 +259,25 @@ class ASDV3P_Paired(nn.Module):
         num_scales = 2
         if cfg.MODEL.ATTNSCALE_BN_HEAD or bn_head:
             self.scale_attn = nn.Sequential(
-                nn.Conv2d(num_scales * (256 + 48), 256, kernel_size=3,
-                          padding=1, bias=False),
+                nn.Conv2d(
+                    num_scales * (256 + 48), 256, kernel_size=3, padding=1, bias=False
+                ),
                 Norm2d(256),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(256, 256, kernel_size=3, padding=1, bias=False),
                 Norm2d(256),
                 nn.ReLU(inplace=True),
                 nn.Conv2d(256, num_scales, kernel_size=1, bias=False),
-                nn.Sigmoid())
+                nn.Sigmoid(),
+            )
         else:
             self.scale_attn = nn.Sequential(
-                nn.Conv2d(num_scales * (256 + 48), 512, kernel_size=3,
-                          padding=1, bias=False),
+                nn.Conv2d(
+                    num_scales * (256 + 48), 512, kernel_size=3, padding=1, bias=False
+                ),
                 nn.ReLU(inplace=True),
-                nn.Conv2d(512, num_scales, kernel_size=1, padding=1,
-                          bias=False))
+                nn.Conv2d(512, num_scales, kernel_size=1, padding=1, bias=False),
+            )
 
         if cfg.OPTIONS.INIT_DECODER:
             initialize_weights(self.bot_fine)
@@ -273,8 +295,7 @@ class ASDV3P_Paired(nn.Module):
         s2_features, _, final_features = self.backbone(x)
         aspp = self.aspp(final_features)
 
-        if self.fuse_aspp and \
-           aspp_lo is not None and aspp_attn is not None:
+        if self.fuse_aspp and aspp_lo is not None and aspp_attn is not None:
             aspp_attn = scale_as(aspp_attn, aspp)
             aspp_lo = scale_as(aspp_lo, aspp)
             aspp = aspp_attn * aspp_lo + (1 - aspp_attn) * aspp
@@ -296,10 +317,10 @@ class ASDV3P_Paired(nn.Module):
 
         At inference time we can combine many scales together.
         """
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
 
         # run 1x scale
-        assert 1.0 in scales, 'expected one of scales to be 1.0'
+        assert 1.0 in scales, "expected one of scales to be 1.0"
         ps = {}
         all_feats = {}
         ps[1.0], all_feats[1.0] = self._fwd(x_1x)
@@ -320,8 +341,7 @@ class ASDV3P_Paired(nn.Module):
         for idx in range(num_scales - 1):
             lo_scale = scales[idx]
             hi_scale = scales[idx + 1]
-            concat_feats = torch.cat([all_feats[lo_scale],
-                                      all_feats[hi_scale]], 1)
+            concat_feats = torch.cat([all_feats[lo_scale], all_feats[hi_scale]], 1)
             p_attn = self.scale_attn(concat_feats)
             attn[lo_scale] = scale_as(p_attn, x_1x)
 
@@ -352,8 +372,8 @@ class ASDV3P_Paired(nn.Module):
                 output += ps[scale] * attn_1x_scale
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(output, gts)
             return loss
         else:
@@ -363,10 +383,11 @@ class ASDV3P_Paired(nn.Module):
         if self.training:
             return self._forward_paired(inputs, self.trn_scales)
         else:
-            return {'pred': self._forward_paired(inputs, self.inf_scales)}
+            return {"pred": self._forward_paired(inputs, self.inf_scales)}
 
 
 # Batch-norm head with paired attention
 def DeepV3R50BP(num_classes, criterion):
-    return ASDV3P_Paired(num_classes, trunk='resnet-50', criterion=criterion,
-                         bn_head=True)
+    return ASDV3P_Paired(
+        num_classes, trunk="resnet-50", criterion=criterion, bn_head=True
+    )

@@ -30,11 +30,12 @@ POSSIBILITY OF SUCH DAMAGE.
 import os
 import os.path as path
 
-from config import cfg
 from runx.logx import logx
-from datasets.base_loader import BaseLoader
+
 import datasets.cityscapes_labels as cityscapes_labels
 import datasets.uniform as uniform
+from config import cfg
+from datasets.base_loader import BaseLoader
 from datasets.utils import make_dataset_folder
 
 
@@ -59,17 +60,17 @@ def cities_cv_split(root, split, cv_split):
 
     cv_split == 3 means use train + val
     """
-    trn_path = path.join(root, 'leftImg8bit_trainvaltest/leftImg8bit', 'train')
-    val_path = path.join(root, 'leftImg8bit_trainvaltest/leftImg8bit', 'val')
+    trn_path = path.join(root, "leftImg8bit_trainvaltest/leftImg8bit", "train")
+    val_path = path.join(root, "leftImg8bit_trainvaltest/leftImg8bit", "val")
 
-    trn_cities = ['train/' + c for c in os.listdir(trn_path)]
+    trn_cities = ["train/" + c for c in os.listdir(trn_path)]
     trn_cities = sorted(trn_cities)  # sort to insure reproducibility
-    val_cities = ['val/' + c for c in os.listdir(val_path)]
+    val_cities = ["val/" + c for c in os.listdir(val_path)]
 
     all_cities = val_cities + trn_cities
 
     if cv_split == 3:
-        logx.msg('cv split {} {} {}'.format(split, cv_split, all_cities))
+        logx.msg("cv split {} {} {}".format(split, cv_split, all_cities))
         return all_cities
 
     num_val_cities = len(val_cities)
@@ -79,13 +80,13 @@ def cities_cv_split(root, split, cv_split):
     cities = []
     for j in range(num_cities):
         if j >= offset and j < (offset + num_val_cities):
-            if split == 'val':
+            if split == "val":
                 cities.append(all_cities[j])
         else:
-            if split == 'train':
+            if split == "train":
                 cities.append(all_cities[j])
 
-    logx.msg('cv split {} {} {}'.format(split, cv_split, cities))
+    logx.msg("cv split {} {} {}".format(split, cv_split, cities))
     return cities
 
 
@@ -93,12 +94,11 @@ def coarse_cities(root):
     """
     Find coarse cities
     """
-    split = 'train_extra'
-    coarse_path = path.join(root, 'leftImg8bit_trainextra/leftImg8bit',
-                            split)
-    coarse_cities = [f'{split}/' + c for c in os.listdir(coarse_path)]
+    split = "train_extra"
+    coarse_path = path.join(root, "leftImg8bit_trainextra/leftImg8bit", split)
+    coarse_cities = [f"{split}/" + c for c in os.listdir(coarse_path)]
 
-    logx.msg(f'found {len(coarse_cities)} coarse cities')
+    logx.msg(f"found {len(coarse_cities)} coarse cities")
     return coarse_cities
 
 
@@ -108,13 +108,23 @@ class Loader(BaseLoader):
     trainid_to_name = {}
     color_mapping = []
 
-    def __init__(self, mode, quality='fine', joint_transform_list=None,
-                 img_transform=None, label_transform=None, eval_folder=None):
+    def __init__(
+        self,
+        mode,
+        quality="fine",
+        joint_transform_list=None,
+        img_transform=None,
+        label_transform=None,
+        eval_folder=None,
+    ):
 
-        super(Loader, self).__init__(quality=quality, mode=mode,
-                                     joint_transform_list=joint_transform_list,
-                                     img_transform=img_transform,
-                                     label_transform=label_transform)
+        super(Loader, self).__init__(
+            quality=quality,
+            mode=mode,
+            joint_transform_list=joint_transform_list,
+            img_transform=img_transform,
+            label_transform=label_transform,
+        )
 
         ######################################################################
         # Cityscapes-specific stuff:
@@ -123,41 +133,52 @@ class Loader(BaseLoader):
         self.id_to_trainid = cityscapes_labels.label2trainid
         self.trainid_to_name = cityscapes_labels.trainId2name
         self.fill_colormap()
-        img_ext = 'png'
-        mask_ext = 'png'
-        img_root = path.join(self.root, 'leftImg8bit_trainvaltest/leftImg8bit')
-        mask_root = path.join(self.root, 'gtFine_trainvaltest/gtFine')
-        if mode == 'folder':
+        img_ext = "png"
+        mask_ext = "png"
+        img_root = path.join(self.root, "leftImg8bit_trainvaltest/leftImg8bit")
+        mask_root = path.join(self.root, "gtFine_trainvaltest/gtFine")
+        if mode == "folder":
             self.all_imgs = make_dataset_folder(eval_folder)
         else:
             self.fine_cities = cities_cv_split(self.root, mode, cfg.DATASET.CV)
             self.all_imgs = self.find_cityscapes_images(
-                self.fine_cities, img_root, mask_root, img_ext, mask_ext)
+                self.fine_cities, img_root, mask_root, img_ext, mask_ext
+            )
 
-        logx.msg(f'cn num_classes {self.num_classes}')
-        self.fine_centroids = uniform.build_centroids(self.all_imgs,
-                                                      self.num_classes,
-                                                      self.train,
-                                                      cv=cfg.DATASET.CV,
-                                                      id2trainid=self.id_to_trainid)
+        logx.msg(f"cn num_classes {self.num_classes}")
+        self.fine_centroids = uniform.build_centroids(
+            self.all_imgs,
+            self.num_classes,
+            self.train,
+            cv=cfg.DATASET.CV,
+            id2trainid=self.id_to_trainid,
+        )
         self.centroids = self.fine_centroids
 
-        if cfg.DATASET.COARSE_BOOST_CLASSES and mode == 'train':
+        if cfg.DATASET.COARSE_BOOST_CLASSES and mode == "train":
             self.coarse_cities = coarse_cities(self.root)
-            img_root = path.join(self.root,
-                                 'leftImg8bit_trainextra/leftImg8bit')
-            mask_root = path.join(self.root, 'gtCoarse', 'gtCoarse')
+            img_root = path.join(self.root, "leftImg8bit_trainextra/leftImg8bit")
+            mask_root = path.join(self.root, "gtCoarse", "gtCoarse")
             self.coarse_imgs = self.find_cityscapes_images(
-                self.coarse_cities, img_root, mask_root, img_ext, mask_ext,
-                fine_coarse='gtCoarse')
+                self.coarse_cities,
+                img_root,
+                mask_root,
+                img_ext,
+                mask_ext,
+                fine_coarse="gtCoarse",
+            )
 
-            if cfg.DATASET.CLASS_UNIFORM_PCT:   
-                
-                custom_coarse = (cfg.DATASET.CUSTOM_COARSE_PROB is not None)
+            if cfg.DATASET.CLASS_UNIFORM_PCT:
+
+                custom_coarse = cfg.DATASET.CUSTOM_COARSE_PROB is not None
                 self.coarse_centroids = uniform.build_centroids(
-                    self.coarse_imgs, self.num_classes, self.train,
-                    coarse=(not custom_coarse), custom_coarse=custom_coarse,
-                    id2trainid=self.id_to_trainid)
+                    self.coarse_imgs,
+                    self.num_classes,
+                    self.train,
+                    coarse=(not custom_coarse),
+                    custom_coarse=custom_coarse,
+                    id2trainid=self.id_to_trainid,
+                )
 
                 for cid in cfg.DATASET.COARSE_BOOST_CLASSES:
                     self.centroids[cid].extend(self.coarse_centroids[cid])
@@ -176,11 +197,12 @@ class Loader(BaseLoader):
         """
         Turn on using coarse images in training
         """
-        print('==============+Running Only Coarse+===============')
+        print("==============+Running Only Coarse+===============")
         self.centroids = self.coarse_centroids
 
-    def find_cityscapes_images(self, cities, img_root, mask_root, img_ext,
-                               mask_ext, fine_coarse='gtFine'):
+    def find_cityscapes_images(
+        self, cities, img_root, mask_root, img_ext, mask_ext, fine_coarse="gtFine"
+    ):
         """
         Find image and segmentation mask files and return a list of
         tuples of them.
@@ -195,46 +217,86 @@ class Loader(BaseLoader):
         """
         items = []
         for city in cities:
-            img_dir = '{root}/{city}'.format(root=img_root, city=city)
+            img_dir = "{root}/{city}".format(root=img_root, city=city)
             for file_name in os.listdir(img_dir):
                 basename, ext = os.path.splitext(file_name)
-                assert ext == '.' + img_ext, '{} {}'.format(ext, img_ext)
+                assert ext == "." + img_ext, "{} {}".format(ext, img_ext)
                 full_img_fn = os.path.join(img_dir, file_name)
-                basename, ext = file_name.split('_leftImg8bit')
-                if cfg.DATASET.CUSTOM_COARSE_PROB and fine_coarse != 'gtFine':
-                    mask_fn = f'{basename}_leftImg8bit.png'
+                basename, ext = file_name.split("_leftImg8bit")
+                if cfg.DATASET.CUSTOM_COARSE_PROB and fine_coarse != "gtFine":
+                    mask_fn = f"{basename}_leftImg8bit.png"
                     cc_path = cfg.DATASET.CITYSCAPES_CUSTOMCOARSE
                     full_mask_fn = os.path.join(cc_path, city, mask_fn)
                     os.path.isfile(full_mask_fn)
                 else:
-                    mask_fn = f'{basename}_{fine_coarse}_labelIds{ext}'
+                    mask_fn = f"{basename}_{fine_coarse}_labelIds{ext}"
                     full_mask_fn = os.path.join(mask_root, city, mask_fn)
                 items.append((full_img_fn, full_mask_fn))
 
-        logx.msg('mode {} found {} images'.format(self.mode, len(items)))
+        logx.msg("mode {} found {} images".format(self.mode, len(items)))
 
         return items
 
     def fill_colormap(self):
-        palette = [128, 64, 128,
-                   244, 35, 232,
-                   70, 70, 70,
-                   102, 102, 156,
-                   190, 153, 153,
-                   153, 153, 153,
-                   250, 170, 30,
-                   220, 220, 0,
-                   107, 142, 35,
-                   152, 251, 152,
-                   70, 130, 180,
-                   220, 20, 60,
-                   255, 0, 0,
-                   0, 0, 142,
-                   0, 0, 70,
-                   0, 60, 100,
-                   0, 80, 100,
-                   0, 0, 230,
-                   119, 11, 32]
+        palette = [
+            128,
+            64,
+            128,
+            244,
+            35,
+            232,
+            70,
+            70,
+            70,
+            102,
+            102,
+            156,
+            190,
+            153,
+            153,
+            153,
+            153,
+            153,
+            250,
+            170,
+            30,
+            220,
+            220,
+            0,
+            107,
+            142,
+            35,
+            152,
+            251,
+            152,
+            70,
+            130,
+            180,
+            220,
+            20,
+            60,
+            255,
+            0,
+            0,
+            0,
+            0,
+            142,
+            0,
+            0,
+            70,
+            0,
+            60,
+            100,
+            0,
+            80,
+            100,
+            0,
+            0,
+            230,
+            119,
+            11,
+            32,
+        ]
         zero_pad = 256 * 3 - len(palette)
         for i in range(zero_pad):
             palette.append(0)

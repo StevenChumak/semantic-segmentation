@@ -31,10 +31,10 @@ import torch
 from torch import nn
 
 from config import cfg
-from network.mynn import initialize_weights, Norm2d, Upsample, Upsample2
-from network.mynn import ResizeX, scale_as
-from network.utils import get_aspp, get_trunk, ConvBnRelu
-from network.utils import make_seg_head, make_attn_head
+from network.mynn import (Norm2d, ResizeX, Upsample, Upsample2,
+                          initialize_weights, scale_as)
+from network.utils import (ConvBnRelu, get_aspp, get_trunk, make_attn_head,
+                           make_seg_head)
 from utils.misc import fmt_scale
 
 
@@ -42,6 +42,7 @@ class MscaleBase(nn.Module):
     """
     Multi-scale attention segmentation model base class
     """
+
     def __init__(self):
         super(MscaleBase, self).__init__()
         self.criterion = None
@@ -80,8 +81,7 @@ class MscaleBase(nn.Module):
             output = p_1x
         else:
             output = attn_1x * p_1x
-            p_next, _ = self.recurse_fuse_fwd(x, scales,
-                                              attn_lo=attn, aspp_lo=aspp)
+            p_next, _ = self.recurse_fuse_fwd(x, scales, attn_lo=attn, aspp_lo=aspp)
             output += (1 - attn_1x) * p_next
         return output, attn_1x
 
@@ -93,8 +93,8 @@ class MscaleBase(nn.Module):
         aspp features forward, then back down high to low to apply attention
         such that the lower scale gets higher priority
         """
-        x_1x = inputs['images']
-        assert 1.0 in scales, 'expected 1.0 to be the target scale'
+        x_1x = inputs["images"]
+        assert 1.0 in scales, "expected 1.0 to be the target scale"
 
         # Evaluation must happen low to high so that we can feed the ASPP
         # features forward to higher scales
@@ -104,12 +104,12 @@ class MscaleBase(nn.Module):
         pred, attn = self.recurse_fuse_fwd(x_1x, scales)
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(pred, gts)
             return loss
         else:
-            return {'pred': pred, 'attn_10x': attn}
+            return {"pred": pred, "attn_10x": attn}
 
     def nscale_forward(self, inputs, scales):
         """
@@ -137,9 +137,9 @@ class MscaleBase(nn.Module):
         Output:
           If training, return loss, else return prediction + attention
         """
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
 
-        assert 1.0 in scales, 'expected 1.0 to be the target scale'
+        assert 1.0 in scales, "expected 1.0 to be the target scale"
         # Lower resolution provides attention for higher rez predictions,
         # so we evaluate in order: high to low
         scales = sorted(scales, reverse=True)
@@ -153,9 +153,9 @@ class MscaleBase(nn.Module):
             scale_float = torch.Tensor(bs).fill_(s)
             p, attn, _aspp_attn, _aspp = self._fwd(x, scale_float=scale_float)
 
-            output_dict[fmt_scale('pred', s)] = p
+            output_dict[fmt_scale("pred", s)] = p
             if s != 2.0:
-                output_dict[fmt_scale('attn', s)] = attn
+                output_dict[fmt_scale("attn", s)] = attn
 
             if pred is None:
                 pred = p
@@ -171,25 +171,23 @@ class MscaleBase(nn.Module):
                 pred = p + (1 - attn) * pred
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(pred, gts)
             return loss
         else:
-            output_dict['pred'] = pred
+            output_dict["pred"] = pred
             return output_dict
 
     def two_scale_forward(self, inputs):
-        assert 'images' in inputs
+        assert "images" in inputs
 
-        x_1x = inputs['images']
+        x_1x = inputs["images"]
         x_lo = ResizeX(x_1x, cfg.MODEL.MSCALE_LO_SCALE)
 
-        pred_05x, attn_05x, aspp_attn, aspp_lo = \
-            self._fwd(x_lo)
+        pred_05x, attn_05x, aspp_attn, aspp_lo = self._fwd(x_lo)
 
-        p_1x, _, _, _ = self._fwd(x_1x, aspp_lo=aspp_lo,
-                                  aspp_attn=aspp_attn)
+        p_1x, _, _, _ = self._fwd(x_1x, aspp_lo=aspp_lo, aspp_attn=aspp_attn)
 
         p_lo = attn_05x * pred_05x
         p_lo = scale_as(p_lo, p_1x)
@@ -197,8 +195,8 @@ class MscaleBase(nn.Module):
         joint_pred = p_lo + (1 - logit_attn) * p_1x
 
         if self.training:
-            assert 'gts' in inputs
-            gts = inputs['gts']
+            assert "gts" in inputs
+            gts = inputs["gts"]
             loss = self.criterion(joint_pred, gts)
 
             # Optionally, apply supervision to the multi-scale predictions
@@ -212,10 +210,10 @@ class MscaleBase(nn.Module):
             return loss
         else:
             output_dict = {
-                'pred': joint_pred,
-                'pred_05x': pred_05x,
-                'pred_10x': p_1x,
-                'attn_05x': attn_05x,
+                "pred": joint_pred,
+                "pred_05x": pred_05x,
+                "pred_10x": p_1x,
+                "attn_05x": attn_05x,
             }
             return output_dict
 
@@ -233,17 +231,24 @@ class MscaleV3Plus(MscaleBase):
     """
     DeepLabV3Plus-based mscale segmentation model
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None,
-                 use_dpc=False, fuse_aspp=False, attn_2b=False):
+
+    def __init__(
+        self,
+        num_classes,
+        trunk="wrn38",
+        criterion=None,
+        use_dpc=False,
+        fuse_aspp=False,
+        attn_2b=False,
+    ):
         super(MscaleV3Plus, self).__init__()
         self.criterion = criterion
         self.fuse_aspp = fuse_aspp
         self.attn_2b = attn_2b
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=256,
-                                          output_stride=8,
-                                          dpc=use_dpc)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8, dpc=use_dpc
+        )
         self.bot_fine = nn.Conv2d(s2_ch, 48, kernel_size=1, bias=False)
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
 
@@ -256,7 +261,8 @@ class MscaleV3Plus(MscaleBase):
             nn.Conv2d(bot_ch, bot_ch, kernel_size=3, padding=1, bias=False),
             Norm2d(bot_ch),
             nn.ReLU(inplace=True),
-            nn.Conv2d(bot_ch, num_classes, kernel_size=1, bias=False))
+            nn.Conv2d(bot_ch, num_classes, kernel_size=1, bias=False),
+        )
 
         # Scale-attention prediction head
         if self.attn_2b:
@@ -266,8 +272,7 @@ class MscaleV3Plus(MscaleBase):
 
         scale_in_ch = 256 + 48
 
-        self.scale_attn = make_attn_head(in_ch=scale_in_ch,
-                                         out_ch=attn_ch)
+        self.scale_attn = make_attn_head(in_ch=scale_in_ch, out_ch=attn_ch)
 
         if cfg.OPTIONS.INIT_DECODER:
             initialize_weights(self.bot_fine)
@@ -298,8 +303,7 @@ class MscaleV3Plus(MscaleBase):
         s2_features, _, final_features = self.backbone(x)
         aspp = self.aspp(final_features)
 
-        if self.fuse_aspp and \
-           aspp_lo is not None and aspp_attn is not None:
+        if self.fuse_aspp and aspp_lo is not None and aspp_attn is not None:
             aspp_attn = scale_as(aspp_attn, aspp)
             aspp_lo = scale_as(aspp_lo, aspp)
             aspp = aspp_attn * aspp_lo + (1 - aspp_attn) * aspp
@@ -329,35 +333,35 @@ class MscaleV3Plus(MscaleBase):
 
 
 def DeepV3R50(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='resnet-50', criterion=criterion)
+    return MscaleV3Plus(num_classes, trunk="resnet-50", criterion=criterion)
 
 
 def DeepV3W38(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='wrn38', criterion=criterion)
+    return MscaleV3Plus(num_classes, trunk="wrn38", criterion=criterion)
 
 
 def DeepV3W38Fuse(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='wrn38', criterion=criterion,
-                        fuse_aspp=True)
+    return MscaleV3Plus(num_classes, trunk="wrn38", criterion=criterion, fuse_aspp=True)
 
 
 def DeepV3W38Fuse2(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='wrn38', criterion=criterion,
-                        fuse_aspp=True, attn_2b=True)
+    return MscaleV3Plus(
+        num_classes, trunk="wrn38", criterion=criterion, fuse_aspp=True, attn_2b=True
+    )
 
 
 def DeepV3EffB4(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='efficientnet_b4',
-                        criterion=criterion)
+    return MscaleV3Plus(num_classes, trunk="efficientnet_b4", criterion=criterion)
 
 
 def DeepV3EffB4Fuse(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='efficientnet_b4',
-                        criterion=criterion, fuse_aspp=True)
+    return MscaleV3Plus(
+        num_classes, trunk="efficientnet_b4", criterion=criterion, fuse_aspp=True
+    )
 
 
 def DeepV3X71(num_classes, criterion):
-    return MscaleV3Plus(num_classes, trunk='xception71', criterion=criterion)
+    return MscaleV3Plus(num_classes, trunk="xception71", criterion=criterion)
 
 
 class MscaleDeeper(MscaleBase):
@@ -365,16 +369,20 @@ class MscaleDeeper(MscaleBase):
     Panoptic DeepLab-style semantic segmentation network
     stride8 only
     """
-    def __init__(self, num_classes, trunk='wrn38', criterion=None,
-                 fuse_aspp=False, attn_2b=False):
+
+    def __init__(
+        self, num_classes, trunk="wrn38", criterion=None, fuse_aspp=False, attn_2b=False
+    ):
         super(MscaleDeeper, self).__init__()
         self.criterion = criterion
         self.fuse_aspp = fuse_aspp
         self.attn_2b = attn_2b
         self.backbone, s2_ch, s4_ch, high_level_ch = get_trunk(
-            trunk_name=trunk, output_stride=8)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch, bottleneck_ch=256,
-                                          output_stride=8)
+            trunk_name=trunk, output_stride=8
+        )
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=256, output_stride=8
+        )
 
         self.convs2 = nn.Conv2d(s2_ch, 32, kernel_size=1, bias=False)
         self.convs4 = nn.Conv2d(s4_ch, 64, kernel_size=1, bias=False)
@@ -388,13 +396,18 @@ class MscaleDeeper(MscaleBase):
             attn_ch = 2
         else:
             attn_ch = 1
-        self.scale_attn = make_attn_head(in_ch=256,
-                                         out_ch=attn_ch)
+        self.scale_attn = make_attn_head(in_ch=256, out_ch=attn_ch)
 
         if cfg.OPTIONS.INIT_DECODER:
-            initialize_weights(self.convs2, self.convs4, self.conv_up1,
-                               self.conv_up2, self.conv_up3, self.conv_up5,
-                               self.scale_attn)
+            initialize_weights(
+                self.convs2,
+                self.convs4,
+                self.conv_up1,
+                self.conv_up2,
+                self.conv_up3,
+                self.conv_up5,
+                self.scale_attn,
+            )
 
     def _fwd(self, x, aspp_lo=None, aspp_attn=None):
         s2_features, s4_features, final_features = self.backbone(x)
@@ -402,8 +415,7 @@ class MscaleDeeper(MscaleBase):
         s4_features = self.convs4(s4_features)
         aspp = self.aspp(final_features)
 
-        if self.fuse_aspp and \
-           aspp_lo is not None and aspp_attn is not None:
+        if self.fuse_aspp and aspp_lo is not None and aspp_attn is not None:
             aspp_attn = scale_as(aspp_attn, aspp)
             aspp_lo = scale_as(aspp_lo, aspp)
             aspp = aspp_attn * aspp_lo + (1 - aspp_attn) * aspp
@@ -433,33 +445,33 @@ class MscaleDeeper(MscaleBase):
 
 
 def DeeperW38(num_classes, criterion, s2s4=True):
-    return MscaleDeeper(num_classes=num_classes, criterion=criterion,
-                        trunk='wrn38')
+    return MscaleDeeper(num_classes=num_classes, criterion=criterion, trunk="wrn38")
 
 
 def DeeperX71(num_classes, criterion, s2s4=True):
-    return MscaleDeeper(num_classes=num_classes, criterion=criterion,
-                        trunk='xception71')
+    return MscaleDeeper(
+        num_classes=num_classes, criterion=criterion, trunk="xception71"
+    )
 
 
 def DeeperEffB4(num_classes, criterion, s2s4=True):
-    return MscaleDeeper(num_classes=num_classes, criterion=criterion,
-                        trunk='efficientnet_b4')
+    return MscaleDeeper(
+        num_classes=num_classes, criterion=criterion, trunk="efficientnet_b4"
+    )
 
 
 class MscaleBasic(MscaleBase):
-    """
-    """
-    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
+    """ """
+
+    def __init__(self, num_classes, trunk="hrnetv2", criterion=None):
         super(MscaleBasic, self).__init__()
         self.criterion = criterion
         self.backbone, _, _, high_level_ch = get_trunk(
-            trunk_name=trunk, output_stride=8)
+            trunk_name=trunk, output_stride=8
+        )
 
-        self.cls_head = make_seg_head(in_ch=high_level_ch,
-                                      out_ch=num_classes)
-        self.scale_attn = make_attn_head(in_ch=high_level_ch,
-                                         out_ch=1)
+        self.cls_head = make_seg_head(in_ch=high_level_ch, out_ch=num_classes)
+        self.scale_attn = make_attn_head(in_ch=high_level_ch, out_ch=1)
 
     def _fwd(self, x, aspp_lo=None, aspp_attn=None, scale_float=None):
         _, _, final_features = self.backbone(x)
@@ -472,21 +484,21 @@ class MscaleBasic(MscaleBase):
 
 
 def HRNet(num_classes, criterion, s2s4=None):
-    return MscaleBasic(num_classes=num_classes, criterion=criterion,
-                       trunk='hrnetv2')
+    return MscaleBasic(num_classes=num_classes, criterion=criterion, trunk="hrnetv2")
 
 
 class ASPP(MscaleBase):
     """
     ASPP-based Mscale
     """
-    def __init__(self, num_classes, trunk='hrnetv2', criterion=None):
+
+    def __init__(self, num_classes, trunk="hrnetv2", criterion=None):
         super(ASPP, self).__init__()
         self.criterion = criterion
         self.backbone, s2_ch, _s4_ch, high_level_ch = get_trunk(trunk)
-        self.aspp, aspp_out_ch = get_aspp(high_level_ch,
-                                          bottleneck_ch=cfg.MODEL.ASPP_BOT_CH,
-                                          output_stride=8)
+        self.aspp, aspp_out_ch = get_aspp(
+            high_level_ch, bottleneck_ch=cfg.MODEL.ASPP_BOT_CH, output_stride=8
+        )
         self.bot_aspp = nn.Conv2d(aspp_out_ch, 256, kernel_size=1, bias=False)
         self.final = make_seg_head(in_ch=256, out_ch=num_classes)
         self.scale_attn = make_attn_head(in_ch=256, out_ch=1)
@@ -512,4 +524,4 @@ class ASPP(MscaleBase):
 
 
 def HRNet_ASP(num_classes, criterion, s2s4=None):
-    return ASPP(num_classes=num_classes, criterion=criterion, trunk='hrnetv2')
+    return ASPP(num_classes=num_classes, criterion=criterion, trunk="hrnetv2")

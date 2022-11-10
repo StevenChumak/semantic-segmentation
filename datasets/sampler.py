@@ -34,11 +34,12 @@
 """
 
 
-
 import math
+
 import torch
-from torch.distributed import get_world_size, get_rank
+from torch.distributed import get_rank, get_world_size
 from torch.utils.data import Sampler
+
 
 class DistributedSampler(Sampler):
     """Sampler that restricts data loading to a subset of the dataset.
@@ -58,7 +59,15 @@ class DistributedSampler(Sampler):
         rank (optional): Rank of the current process within num_replicas.
     """
 
-    def __init__(self, dataset, pad=False, consecutive_sample=False, permutation=False, num_replicas=None, rank=None):
+    def __init__(
+        self,
+        dataset,
+        pad=False,
+        consecutive_sample=False,
+        permutation=False,
+        num_replicas=None,
+        rank=None,
+    ):
         if num_replicas is None:
             num_replicas = get_world_size()
         if rank is None:
@@ -70,9 +79,13 @@ class DistributedSampler(Sampler):
         self.consecutive_sample = consecutive_sample
         self.permutation = permutation
         if pad:
-            self.num_samples = int(math.ceil(len(self.dataset) * 1.0 / self.num_replicas))
+            self.num_samples = int(
+                math.ceil(len(self.dataset) * 1.0 / self.num_replicas)
+            )
         else:
-            self.num_samples = int(math.floor(len(self.dataset) * 1.0 / self.num_replicas))
+            self.num_samples = int(
+                math.floor(len(self.dataset) * 1.0 / self.num_replicas)
+            )
         self.total_size = self.num_samples * self.num_replicas
 
     def __iter__(self):
@@ -84,17 +97,17 @@ class DistributedSampler(Sampler):
             indices = list(torch.randperm(len(self.dataset), generator=g))
         else:
             indices = list([x for x in range(len(self.dataset))])
-        
+
         # add extra samples to make it evenly divisible
         if self.total_size > len(indices):
-            indices += indices[:(self.total_size - len(indices))]
+            indices += indices[: (self.total_size - len(indices))]
 
         # subsample
         if self.consecutive_sample:
             offset = self.num_samples * self.rank
-            indices = indices[offset:offset + self.num_samples]
+            indices = indices[offset : offset + self.num_samples]
         else:
-            indices = indices[self.rank:self.total_size:self.num_replicas]
+            indices = indices[self.rank : self.total_size : self.num_replicas]
         assert len(indices) == self.num_samples
 
         return iter(indices)

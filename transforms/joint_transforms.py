@@ -28,9 +28,11 @@
 """
 import math
 import numbers
-from PIL import Image, ImageOps
-import numpy as np
 import random
+
+import numpy as np
+from PIL import Image, ImageOps
+
 from config import cfg
 
 
@@ -92,6 +94,7 @@ class RandomCrop(object):
     else:
         # slide image within crop
     """
+
     def __init__(self, crop_size, nopad=True):
         self.size = set_crop_size(crop_size)
         self.ignore_index = cfg.DATASET.IGNORE_LABEL
@@ -120,8 +123,10 @@ class RandomCrop(object):
             else:
                 y1 = random.randint(0, h - target_h)
 
-        return [img.crop((x1, y1, x1 + target_w, y1 + target_h)),
-                mask.crop((x1, y1, x1 + target_w, y1 + target_h))]
+        return [
+            img.crop((x1, y1, x1 + target_w, y1 + target_h)),
+            mask.crop((x1, y1, x1 + target_w, y1 + target_h)),
+        ]
 
     def image_in_crop(self, target_w, target_h, w, h, img, mask):
         # image smaller than crop, so slide image within crop
@@ -134,10 +139,8 @@ class RandomCrop(object):
         top = random.randint(0, y_total_margin)
         bottom = y_total_margin - top
 
-        slid_image = add_margin(img, top, right, bottom, left,
-                                self.pad_color)
-        slid_mask = add_margin(mask, top, right, bottom, left,
-                               self.ignore_index)
+        slid_image = add_margin(img, top, right, bottom, left, self.pad_color)
+        slid_mask = add_margin(mask, top, right, bottom, left, self.ignore_index)
         return [slid_image, slid_mask]
 
     def __call__(self, img, mask, centroid=None):
@@ -152,8 +155,7 @@ class RandomCrop(object):
             if w < target_w and h < target_h:
                 return self.image_in_crop(target_w, target_h, w, h, img, mask)
             else:
-                return self.crop_in_image(centroid, target_w, target_h, w, h,
-                                          img, mask)
+                return self.crop_in_image(centroid, target_w, target_h, w, h, img, mask)
 
         if self.nopad:
             # Shrink crop size if image < crop
@@ -173,12 +175,10 @@ class RandomCrop(object):
             border = (pad_w, pad_h, pad_w, pad_h)
             if pad_h or pad_w:
                 img = ImageOps.expand(img, border=border, fill=self.pad_color)
-                mask = ImageOps.expand(mask, border=border,
-                                       fill=self.ignore_index)
+                mask = ImageOps.expand(mask, border=border, fill=self.ignore_index)
                 w, h = img.size
 
-        return self.crop_in_image(centroid, target_w, target_h, w, h,
-                                  img, mask)
+        return self.crop_in_image(centroid, target_w, target_h, w, h, img, mask)
 
 
 class ResizeHeight(object):
@@ -189,8 +189,10 @@ class ResizeHeight(object):
     def __call__(self, img, mask):
         w, h = img.size
         target_w = int(w / h * self.target_h)
-        return (img.resize((target_w, self.target_h), self.interpolation),
-                mask.resize((target_w, self.target_h), Image.NEAREST))
+        return (
+            img.resize((target_w, self.target_h), self.interpolation),
+            mask.resize((target_w, self.target_h), Image.NEAREST),
+        )
 
 
 class CenterCrop(object):
@@ -204,9 +206,11 @@ class CenterCrop(object):
         assert img.size == mask.size
         w, h = img.size
         th, tw = self.size
-        x1 = int(round((w - tw) / 2.))
-        y1 = int(round((h - th) / 2.))
-        return img.crop((x1, y1, x1 + tw, y1 + th)), mask.crop((x1, y1, x1 + tw, y1 + th))
+        x1 = int(round((w - tw) / 2.0))
+        y1 = int(round((h - th) / 2.0))
+        return img.crop((x1, y1, x1 + tw, y1 + th)), mask.crop(
+            (x1, y1, x1 + tw, y1 + th)
+        )
 
 
 class CenterCropPad(object):
@@ -218,14 +222,13 @@ class CenterCropPad(object):
         self.ignore_index = cfg.DATASET.IGNORE_LABEL
 
     def __call__(self, img, mask):
-        
+
         assert img.size == mask.size
         w, h = img.size
         if isinstance(self.size, tuple):
-                tw, th = self.size[0], self.size[1]
+            tw, th = self.size[0], self.size[1]
         else:
-                th, tw = self.size, self.size
-	
+            th, tw = self.size, self.size
 
         if w < tw:
             pad_x = tw - w
@@ -239,13 +242,15 @@ class CenterCropPad(object):
         if pad_x or pad_y:
             # left, top, right, bottom
             img = ImageOps.expand(img, border=(pad_x, pad_y, pad_x, pad_y), fill=0)
-            mask = ImageOps.expand(mask, border=(pad_x, pad_y, pad_x, pad_y),
-                                   fill=self.ignore_index)
+            mask = ImageOps.expand(
+                mask, border=(pad_x, pad_y, pad_x, pad_y), fill=self.ignore_index
+            )
 
-        x1 = int(round((w - tw) / 2.))
-        y1 = int(round((h - th) / 2.))
-        return img.crop((x1, y1, x1 + tw, y1 + th)), mask.crop((x1, y1, x1 + tw, y1 + th))
-
+        x1 = int(round((w - tw) / 2.0))
+        y1 = int(round((h - th) / 2.0))
+        return img.crop((x1, y1, x1 + tw, y1 + th)), mask.crop(
+            (x1, y1, x1 + tw, y1 + th)
+        )
 
 
 class PadImage(object):
@@ -253,31 +258,35 @@ class PadImage(object):
         self.size = size
         self.ignore_index = cfg.DATASET.IGNORE_LABEL
 
-        
     def __call__(self, img, mask):
         assert img.size == mask.size
         th, tw = self.size, self.size
 
-        
         w, h = img.size
-        
-        if w > tw or h > th :
-            wpercent = (tw/float(w))    
-            target_h = int((float(img.size[1])*float(wpercent)))
-            img, mask = img.resize((tw, target_h), Image.BICUBIC), mask.resize((tw, target_h), Image.NEAREST)
+
+        if w > tw or h > th:
+            wpercent = tw / float(w)
+            target_h = int((float(img.size[1]) * float(wpercent)))
+            img, mask = img.resize((tw, target_h), Image.BICUBIC), mask.resize(
+                (tw, target_h), Image.NEAREST
+            )
 
         w, h = img.size
         ##Pad
-        img = ImageOps.expand(img, border=(0,0,tw-w, th-h), fill=0)
-        mask = ImageOps.expand(mask, border=(0,0,tw-w, th-h), fill=self.ignore_index)
-        
+        img = ImageOps.expand(img, border=(0, 0, tw - w, th - h), fill=0)
+        mask = ImageOps.expand(
+            mask, border=(0, 0, tw - w, th - h), fill=self.ignore_index
+        )
+
         return img, mask
+
 
 class RandomHorizontallyFlip(object):
     def __call__(self, img, mask):
         if random.random() < 0.5:
             return img.transpose(Image.FLIP_LEFT_RIGHT), mask.transpose(
-                Image.FLIP_LEFT_RIGHT)
+                Image.FLIP_LEFT_RIGHT
+            )
         return img, mask
 
 
@@ -287,7 +296,9 @@ class FreeScale(object):
 
     def __call__(self, img, mask):
         assert img.size == mask.size
-        return img.resize(self.size, Image.BICUBIC), mask.resize(self.size, Image.NEAREST)
+        return img.resize(self.size, Image.BICUBIC), mask.resize(
+            self.size, Image.NEAREST
+        )
 
 
 class Scale(object):
@@ -315,8 +326,9 @@ class Scale(object):
         target_h = int(h * scale)
         target_size = (target_w, target_h)
 
-        return img.resize(target_size, Image.BILINEAR), \
-            mask.resize(target_size, Image.NEAREST)
+        return img.resize(target_size, Image.BILINEAR), mask.resize(
+            target_size, Image.NEAREST
+        )
 
 
 class new_Scale(object):
@@ -336,12 +348,14 @@ class new_Scale(object):
             ow = self.size
             oh = int(self.size * h / w)
             return img.resize((ow, oh), Image.BICUBIC), mask.resize(
-                (ow, oh), Image.NEAREST)
+                (ow, oh), Image.NEAREST
+            )
         else:
             oh = self.size
             ow = int(self.size * w / h)
             return img.resize((ow, oh), Image.BICUBIC), mask.resize(
-                (ow, oh), Image.NEAREST)
+                (ow, oh), Image.NEAREST
+            )
 
 
 class ScaleMin(object):
@@ -361,12 +375,14 @@ class ScaleMin(object):
             ow = self.size
             oh = int(self.size * h / w)
             return img.resize((ow, oh), Image.BICUBIC), mask.resize(
-                (ow, oh), Image.NEAREST)
+                (ow, oh), Image.NEAREST
+            )
         else:
             oh = self.size
             ow = int(self.size * w / h)
             return img.resize((ow, oh), Image.BICUBIC), mask.resize(
-                (ow, oh), Image.NEAREST)
+                (ow, oh), Image.NEAREST
+            )
 
 
 class Resize(object):
@@ -380,10 +396,12 @@ class Resize(object):
     def __call__(self, img, mask):
         assert img.size == mask.size
         w, h = img.size
-        if (w == h and w == self.size):
+        if w == h and w == self.size:
             return img, mask
-        return (img.resize(self.size, Image.BICUBIC),
-                mask.resize(self.size, Image.NEAREST))
+        return (
+            img.resize(self.size, Image.BICUBIC),
+            mask.resize(self.size, Image.NEAREST),
+        )
 
 
 class RandomSizedCrop(object):
@@ -409,10 +427,11 @@ class RandomSizedCrop(object):
 
                 img = img.crop((x1, y1, x1 + w, y1 + h))
                 mask = mask.crop((x1, y1, x1 + w, y1 + h))
-                assert (img.size == (w, h))
+                assert img.size == (w, h)
 
-                return img.resize((self.size, self.size), Image.BICUBIC),\
-                    mask.resize((self.size, self.size), Image.NEAREST)
+                return img.resize((self.size, self.size), Image.BICUBIC), mask.resize(
+                    (self.size, self.size), Image.NEAREST
+                )
 
         # Fallback
         scale = Scale(self.size)
@@ -427,13 +446,20 @@ class RandomRotate(object):
     def __call__(self, img, mask):
         rotate_degree = random.random() * 2 * self.degree - self.degree
         return img.rotate(rotate_degree, Image.BICUBIC), mask.rotate(
-            rotate_degree, Image.NEAREST)
+            rotate_degree, Image.NEAREST
+        )
 
 
 class RandomSizeAndCrop(object):
-    def __init__(self, crop_size, crop_nopad,
-                 scale_min=0.5, scale_max=2.0, full_size=False,
-                 pre_size=None):
+    def __init__(
+        self,
+        crop_size,
+        crop_nopad,
+        scale_min=0.5,
+        scale_max=2.0,
+        full_size=False,
+        pre_size=None,
+    ):
         self.crop = RandomCrop(crop_size, nopad=crop_nopad)
         self.scale_min = scale_min
         self.scale_max = scale_max
@@ -463,8 +489,10 @@ class RandomSizeAndCrop(object):
         if centroid is not None:
             centroid = [int(c * scale_amt) for c in centroid]
 
-        resized_img, resized_mask = (img.resize((w, h), Image.BICUBIC),
-                                     mask.resize((w, h), Image.NEAREST))
+        resized_img, resized_mask = (
+            img.resize((w, h), Image.BICUBIC),
+            mask.resize((w, h), Image.NEAREST),
+        )
 
         img_mask = self.crop(resized_img, resized_mask, centroid)
         img_mask.append(scale_amt)
@@ -478,12 +506,16 @@ class SlidingCropOld(object):
         self.ignore_label = cfg.DATASET.IGNORE_LABEL
 
     def _pad(self, img, mask):
-        h, w = img.shape[: 2]
+        h, w = img.shape[:2]
         pad_h = max(self.crop_size - h, 0)
         pad_w = max(self.crop_size - w, 0)
-        img = np.pad(img, ((0, pad_h), (0, pad_w), (0, 0)), 'constant')
-        mask = np.pad(mask, ((0, pad_h), (0, pad_w)), 'constant',
-                      constant_values=self.ignore_label)
+        img = np.pad(img, ((0, pad_h), (0, pad_w), (0, 0)), "constant")
+        mask = np.pad(
+            mask,
+            ((0, pad_h), (0, pad_w)),
+            "constant",
+            constant_values=self.ignore_label,
+        )
         return img, mask
 
     def __call__(self, img, mask):
@@ -504,22 +536,20 @@ class SlidingCropOld(object):
                 for xx in range(w_step_num):
                     sy, sx = yy * stride, xx * stride
                     ey, ex = sy + self.crop_size, sx + self.crop_size
-                    img_sub = img[sy: ey, sx: ex, :]
-                    mask_sub = mask[sy: ey, sx: ex]
+                    img_sub = img[sy:ey, sx:ex, :]
+                    mask_sub = mask[sy:ey, sx:ex]
                     img_sub, mask_sub = self._pad(img_sub, mask_sub)
                     img_sublist.append(
-                        Image.fromarray(
-                            img_sub.astype(
-                                np.uint8)).convert('RGB'))
+                        Image.fromarray(img_sub.astype(np.uint8)).convert("RGB")
+                    )
                     mask_sublist.append(
-                        Image.fromarray(
-                            mask_sub.astype(
-                                np.uint8)).convert('P'))
+                        Image.fromarray(mask_sub.astype(np.uint8)).convert("P")
+                    )
             return img_sublist, mask_sublist
         else:
             img, mask = self._pad(img, mask)
-            img = Image.fromarray(img.astype(np.uint8)).convert('RGB')
-            mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
+            img = Image.fromarray(img.astype(np.uint8)).convert("RGB")
+            mask = Image.fromarray(mask.astype(np.uint8)).convert("P")
             return img, mask
 
 
@@ -530,12 +560,16 @@ class SlidingCrop(object):
         self.ignore_label = cfg.DATASET.IGNORE_LABEL
 
     def _pad(self, img, mask):
-        h, w = img.shape[: 2]
+        h, w = img.shape[:2]
         pad_h = max(self.crop_size - h, 0)
         pad_w = max(self.crop_size - w, 0)
-        img = np.pad(img, ((0, pad_h), (0, pad_w), (0, 0)), 'constant')
-        mask = np.pad(mask, ((0, pad_h), (0, pad_w)), 'constant',
-                      constant_values=self.ignore_label)
+        img = np.pad(img, ((0, pad_h), (0, pad_w), (0, 0)), "constant")
+        mask = np.pad(
+            mask,
+            ((0, pad_h), (0, pad_w)),
+            "constant",
+            constant_values=self.ignore_label,
+        )
         return img, mask, h, w
 
     def __call__(self, img, mask):
@@ -556,29 +590,34 @@ class SlidingCrop(object):
                 for xx in range(w_step_num):
                     sy, sx = yy * stride, xx * stride
                     ey, ex = sy + self.crop_size, sx + self.crop_size
-                    img_sub = img[sy: ey, sx: ex, :]
-                    mask_sub = mask[sy: ey, sx: ex]
+                    img_sub = img[sy:ey, sx:ex, :]
+                    mask_sub = mask[sy:ey, sx:ex]
                     img_sub, mask_sub, sub_h, sub_w = self._pad(img_sub, mask_sub)
                     img_slices.append(
-                        Image.fromarray(
-                            img_sub.astype(
-                                np.uint8)).convert('RGB'))
+                        Image.fromarray(img_sub.astype(np.uint8)).convert("RGB")
+                    )
                     mask_slices.append(
-                        Image.fromarray(
-                            mask_sub.astype(
-                                np.uint8)).convert('P'))
+                        Image.fromarray(mask_sub.astype(np.uint8)).convert("P")
+                    )
                     slices_info.append([sy, ey, sx, ex, sub_h, sub_w])
             return img_slices, mask_slices, slices_info
         else:
             img, mask, sub_h, sub_w = self._pad(img, mask)
-            img = Image.fromarray(img.astype(np.uint8)).convert('RGB')
-            mask = Image.fromarray(mask.astype(np.uint8)).convert('P')
+            img = Image.fromarray(img.astype(np.uint8)).convert("RGB")
+            mask = Image.fromarray(mask.astype(np.uint8)).convert("P")
             return [img], [mask], [[0, sub_h, 0, sub_w, sub_h, sub_w]]
 
 
 class _ClassUniform(object):
-    def __init__(self, size, crop_nopad, scale_min=0.5, scale_max=2.0, ignore_index=0,
-                 class_list=[16, 15, 14]):
+    def __init__(
+        self,
+        size,
+        crop_nopad,
+        scale_min=0.5,
+        scale_max=2.0,
+        ignore_index=0,
+        class_list=[16, 15, 14],
+    ):
         """
         This is the initialization for class uniform sampling
         :param size: crop size (int)
@@ -618,13 +657,14 @@ class _ClassUniform(object):
         # In order to isolate the peaks we must remove the background from the mask.
 
         # we create the mask of the background
-        background = (image == 0)
+        background = image == 0
 
         # a little technicality: we must erode the background in order to
         # successfully subtract it form local_max, otherwise a line will
         # appear along the background border (artifact of the local maximum filter)
-        eroded_background = binary_erosion(background, structure=neighborhood,
-                                           border_value=1)
+        eroded_background = binary_erosion(
+            background, structure=neighborhood, border_value=1
+        )
 
         # we obtain the final mask, containing only peaks,
         # by removing the background from the local_max mask (xor operation)
@@ -645,21 +685,23 @@ class _ClassUniform(object):
         h = int(scale_amt * img.size[1])
 
         if scale_amt < 1.0:
-            img, mask = img.resize((w, h), Image.BICUBIC), mask.resize((w, h),
-                                                                       Image.NEAREST)
+            img, mask = img.resize((w, h), Image.BICUBIC), mask.resize(
+                (w, h), Image.NEAREST
+            )
             return self.crop(img, mask)
         else:
             # Smart Crop ( Class Uniform's ABN)
             origw, origh = mask.size
-            img_new, mask_new = \
-                img.resize((w, h), Image.BICUBIC), mask.resize((w, h), Image.NEAREST)
+            img_new, mask_new = img.resize((w, h), Image.BICUBIC), mask.resize(
+                (w, h), Image.NEAREST
+            )
             interested_class = self.class_list  # [16, 15, 14]  # Train, Truck, Bus
             data = np.array(mask)
             arr = np.zeros((1024, 2048))
             for class_of_interest in interested_class:
                 # hist = np.histogram(data==class_of_interest)
                 map = np.where(data == class_of_interest, data, 0)
-                map = map.astype('float64') / map.sum() / class_of_interest
+                map = map.astype("float64") / map.sum() / class_of_interest
                 map[np.isnan(map)] = 0
                 arr = arr + map
 
@@ -668,15 +710,16 @@ class _ClassUniform(object):
 
             # Given a list of classes of interest find the points on the image that are
             # of interest to crop from
-            sum_arr = np.zeros((1024, 2048)).astype('float32')
-            tmp = np.zeros((1024, 2048)).astype('float32')
+            sum_arr = np.zeros((1024, 2048)).astype("float32")
+            tmp = np.zeros((1024, 2048)).astype("float32")
             for x in range(0, arr.shape[0] - window_size, window_size):
                 for y in range(0, arr.shape[1] - window_size, window_size):
-                    sum_arr[int(x + window_size / 2), int(y + window_size / 2)] = origarr[
-                        x:x + window_size,
-                        y:y + window_size].sum()
-                    tmp[x:x + window_size, y:y + window_size] = \
-                        origarr[x:x + window_size, y:y + window_size].sum()
+                    sum_arr[
+                        int(x + window_size / 2), int(y + window_size / 2)
+                    ] = origarr[x : x + window_size, y : y + window_size].sum()
+                    tmp[x : x + window_size, y : y + window_size] = origarr[
+                        x : x + window_size, y : y + window_size
+                    ].sum()
 
             # Scaling Ratios in X and Y for non-uniform images
             ratio = (float(origw) / w, float(origh) / h)
@@ -697,16 +740,26 @@ class _ClassUniform(object):
                 window_size = window_size * ratio[0]
                 cropx = random.uniform(
                     max(0, (x - window_size / 2) - (self.size - window_size)),
-                    max((x - window_size / 2), (x - window_size / 2) - (
-                        (w - window_size) - x + window_size / 2)))
+                    max(
+                        (x - window_size / 2),
+                        (x - window_size / 2)
+                        - ((w - window_size) - x + window_size / 2),
+                    ),
+                )
 
                 cropy = random.uniform(
                     max(0, (y - window_size / 2) - (self.size - window_size)),
-                    max((y - window_size / 2), (y - window_size / 2) - (
-                        (h - window_size) - y + window_size / 2)))
+                    max(
+                        (y - window_size / 2),
+                        (y - window_size / 2)
+                        - ((h - window_size) - y + window_size / 2),
+                    ),
+                )
 
                 return_img = img_new.crop(
-                    (cropx, cropy, cropx + self.size, cropy + self.size))
+                    (cropx, cropy, cropx + self.size, cropy + self.size)
+                )
                 return_mask = mask_new.crop(
-                    (cropx, cropy, cropx + self.size, cropy + self.size))
+                    (cropx, cropy, cropx + self.size, cropy + self.size)
+                )
                 return (return_img, return_mask)

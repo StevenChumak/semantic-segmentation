@@ -27,9 +27,10 @@ Source License
 # --------------------------------------------------------
 """
 
+
 class AttrDict(dict):
 
-    IMMUTABLE = '__immutable__'
+    IMMUTABLE = "__immutable__"
 
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)
@@ -51,8 +52,9 @@ class AttrDict(dict):
                 self[name] = value
         else:
             raise AttributeError(
-                'Attempted to set "{}" to "{}", but AttrDict is immutable'.
-                format(name, value)
+                'Attempted to set "{}" to "{}", but AttrDict is immutable'.format(
+                    name, value
+                )
             )
 
     def immutable(self, is_immutable):

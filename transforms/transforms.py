@@ -32,16 +32,17 @@ Standard Transform
 """
 
 import random
+
 import numpy as np
+import torch
+import torchvision.transforms as torch_tr
+from PIL import Image, ImageEnhance
+from scipy.ndimage.interpolation import shift
 from skimage.filters import gaussian
 from skimage.restoration import denoise_bilateral
-import torch
-from PIL import Image, ImageEnhance
-import torchvision.transforms as torch_tr
-from config import cfg
-from scipy.ndimage.interpolation import shift
-
 from skimage.segmentation import find_boundaries
+
+from config import cfg
 
 try:
     import accimage
@@ -71,56 +72,57 @@ class MaskToTensor(object):
     def __call__(self, img, blockout_predefined_area=False):
         return torch.from_numpy(np.array(img, dtype=np.int32)).long()
 
+
 class RelaxedBoundaryLossToTensor(object):
     """
     Boundary Relaxation
     """
-    def __init__(self,ignore_id, num_classes):
-        self.ignore_id=ignore_id
-        self.num_classes= num_classes
 
+    def __init__(self, ignore_id, num_classes):
+        self.ignore_id = ignore_id
+        self.num_classes = num_classes
 
-    def new_one_hot_converter(self,a):
-        ncols = self.num_classes+1
-        out = np.zeros( (a.size,ncols), dtype=np.uint8)
-        out[np.arange(a.size),a.ravel()] = 1
+    def new_one_hot_converter(self, a):
+        ncols = self.num_classes + 1
+        out = np.zeros((a.size, ncols), dtype=np.uint8)
+        out[np.arange(a.size), a.ravel()] = 1
         out.shape = a.shape + (ncols,)
         return out
 
-    def __call__(self,img):
+    def __call__(self, img):
 
         img_arr = np.array(img)
-        img_arr[img_arr==self.ignore_id]=self.num_classes
-        
+        img_arr[img_arr == self.ignore_id] = self.num_classes
+
         if cfg.STRICTBORDERCLASS != None:
             one_hot_orig = self.new_one_hot_converter(img_arr)
-            mask = np.zeros((img_arr.shape[0],img_arr.shape[1]))
+            mask = np.zeros((img_arr.shape[0], img_arr.shape[1]))
             for cls in cfg.STRICTBORDERCLASS:
-                mask = np.logical_or(mask,(img_arr == cls))
+                mask = np.logical_or(mask, (img_arr == cls))
         one_hot = 0
 
         border = cfg.BORDER_WINDOW
-        if (cfg.REDUCE_BORDER_EPOCH !=-1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH):
+        if cfg.REDUCE_BORDER_EPOCH != -1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH:
             border = border // 2
-            border_prediction = find_boundaries(img_arr, mode='thick').astype(np.uint8)
-        
-        for i in range(-border,border+1):
-            for j in range(-border, border+1):
-                shifted= shift(img_arr,(i,j), cval=self.num_classes)
-                one_hot += self.new_one_hot_converter(shifted)       
-        
-        one_hot[one_hot>1] = 1
-        
-        if cfg.STRICTBORDERCLASS != None:
-            one_hot = np.where(np.expand_dims(mask,2), one_hot_orig, one_hot)
-    
-        one_hot = np.moveaxis(one_hot,-1,0)
-    
+            border_prediction = find_boundaries(img_arr, mode="thick").astype(np.uint8)
 
-        if (cfg.REDUCE_BORDER_EPOCH !=-1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH):
-                one_hot = np.where(border_prediction,2*one_hot,1*one_hot)
-                # print(one_hot.shape)
+        for i in range(-border, border + 1):
+            for j in range(-border, border + 1):
+                shifted = shift(img_arr, (i, j), cval=self.num_classes)
+                one_hot += self.new_one_hot_converter(shifted)
+
+        one_hot[one_hot > 1] = 1
+
+        if cfg.STRICTBORDERCLASS != None:
+            one_hot = np.where(np.expand_dims(mask, 2), one_hot_orig, one_hot)
+
+        one_hot = np.moveaxis(one_hot, -1, 0)
+
+        if cfg.REDUCE_BORDER_EPOCH != -1 and cfg.EPOCH > cfg.REDUCE_BORDER_EPOCH:
+            one_hot = np.where(border_prediction, 2 * one_hot, 1 * one_hot)
+            # print(one_hot.shape)
         return torch.from_numpy(one_hot).byte()
+
 
 class ResizeHeight(object):
     def __init__(self, size, interpolation=Image.BILINEAR):
@@ -146,6 +148,7 @@ class FlipChannels(object):
     """
     Flip around the x-axis
     """
+
     def __call__(self, img):
         img = np.array(img)[:, :, ::-1]
         return Image.fromarray(img.astype(np.uint8))
@@ -155,6 +158,7 @@ class RandomGaussianBlur(object):
     """
     Apply Gaussian Blur
     """
+
     def __call__(self, img):
         sigma = 0.15 + random.random() * 1.15
         # blurred_img = gaussian(np.array(img), sigma=sigma, multichannel=True)
@@ -176,9 +180,12 @@ class RandomBilateralBlur(object):
     Apply Bilateral Filtering
 
     """
+
     def __call__(self, img):
         sigma = random.uniform(0.05, 0.75)
-        blurred_img = denoise_bilateral(np.array(img), sigma_spatial=sigma, multichannel=True)
+        blurred_img = denoise_bilateral(
+            np.array(img), sigma_spatial=sigma, multichannel=True
+        )
         blurred_img *= 255
         return Image.fromarray(blurred_img.astype(np.uint8))
 
@@ -203,7 +210,7 @@ def adjust_brightness(img, brightness_factor):
         PIL Image: Brightness adjusted image.
     """
     if not _is_pil_image(img):
-        raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
+        raise TypeError("img should be PIL Image. Got {}".format(type(img)))
 
     enhancer = ImageEnhance.Brightness(img)
     img = enhancer.enhance(brightness_factor)
@@ -223,7 +230,7 @@ def adjust_contrast(img, contrast_factor):
         PIL Image: Contrast adjusted image.
     """
     if not _is_pil_image(img):
-        raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
+        raise TypeError("img should be PIL Image. Got {}".format(type(img)))
 
     enhancer = ImageEnhance.Contrast(img)
     img = enhancer.enhance(contrast_factor)
@@ -243,7 +250,7 @@ def adjust_saturation(img, saturation_factor):
         PIL Image: Saturation adjusted image.
     """
     if not _is_pil_image(img):
-        raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
+        raise TypeError("img should be PIL Image. Got {}".format(type(img)))
 
     enhancer = ImageEnhance.Color(img)
     img = enhancer.enhance(saturation_factor)
@@ -273,25 +280,25 @@ def adjust_hue(img, hue_factor):
     Returns:
         PIL Image: Hue adjusted image.
     """
-    if not(-0.5 <= hue_factor <= 0.5):
-        raise ValueError('hue_factor is not in [-0.5, 0.5].'.format(hue_factor))
+    if not (-0.5 <= hue_factor <= 0.5):
+        raise ValueError("hue_factor is not in [-0.5, 0.5].".format(hue_factor))
 
     if not _is_pil_image(img):
-        raise TypeError('img should be PIL Image. Got {}'.format(type(img)))
+        raise TypeError("img should be PIL Image. Got {}".format(type(img)))
 
     input_mode = img.mode
-    if input_mode in {'L', '1', 'I', 'F'}:
+    if input_mode in {"L", "1", "I", "F"}:
         return img
 
-    h, s, v = img.convert('HSV').split()
+    h, s, v = img.convert("HSV").split()
 
     np_h = np.array(h, dtype=np.uint8)
     # uint8 addition take cares of rotation across boundaries
-    with np.errstate(over='ignore'):
+    with np.errstate(over="ignore"):
         np_h += np.uint8(hue_factor * 255)
-    h = Image.fromarray(np_h, 'L')
+    h = Image.fromarray(np_h, "L")
 
-    img = Image.merge('HSV', (h, s, v)).convert(input_mode)
+    img = Image.merge("HSV", (h, s, v)).convert(input_mode)
     return img
 
 
@@ -308,6 +315,7 @@ class ColorJitter(object):
         hue(float): How much to jitter hue. hue_factor is chosen uniformly from
             [-hue, hue]. Should be >=0 and <= 0.5.
     """
+
     def __init__(self, brightness=0, contrast=0, saturation=0, hue=0):
         self.brightness = brightness
         self.contrast = contrast
@@ -326,24 +334,30 @@ class ColorJitter(object):
         """
         transforms = []
         if brightness > 0:
-            brightness_factor = np.random.uniform(max(0, 1 - brightness), 1 + brightness)
+            brightness_factor = np.random.uniform(
+                max(0, 1 - brightness), 1 + brightness
+            )
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_brightness(img, brightness_factor)))
+                torch_tr.Lambda(lambda img: adjust_brightness(img, brightness_factor))
+            )
 
         if contrast > 0:
             contrast_factor = np.random.uniform(max(0, 1 - contrast), 1 + contrast)
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_contrast(img, contrast_factor)))
+                torch_tr.Lambda(lambda img: adjust_contrast(img, contrast_factor))
+            )
 
         if saturation > 0:
-            saturation_factor = np.random.uniform(max(0, 1 - saturation), 1 + saturation)
+            saturation_factor = np.random.uniform(
+                max(0, 1 - saturation), 1 + saturation
+            )
             transforms.append(
-                torch_tr.Lambda(lambda img: adjust_saturation(img, saturation_factor)))
+                torch_tr.Lambda(lambda img: adjust_saturation(img, saturation_factor))
+            )
 
         if hue > 0:
             hue_factor = np.random.uniform(-hue, hue)
-            transforms.append(
-                torch_tr.Lambda(lambda img: adjust_hue(img, hue_factor)))
+            transforms.append(torch_tr.Lambda(lambda img: adjust_hue(img, hue_factor)))
 
         np.random.shuffle(transforms)
         transform = torch_tr.Compose(transforms)
@@ -358,6 +372,7 @@ class ColorJitter(object):
         Returns:
             PIL Image: Color jittered image.
         """
-        transform = self.get_params(self.brightness, self.contrast,
-                                    self.saturation, self.hue)
+        transform = self.get_params(
+            self.brightness, self.contrast, self.saturation, self.hue
+        )
         return transform(img)

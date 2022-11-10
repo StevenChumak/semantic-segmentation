@@ -1,11 +1,10 @@
-import os
-import glob
-import random
 import concurrent.futures
+import glob
+import os
+import random
 
 from PIL import Image
 from tqdm import tqdm
-from PIL import Image
 
 """
 This File creates a train and validation set with a ratio of 9-1
@@ -17,7 +16,7 @@ all images are resized to a given size and changed to a .png file
 def resize_dataset(dataset, save_paths, resolution, interpolation):
     image = Image.open(dataset[0])
     mask = Image.open(dataset[1])
-    
+
     if interpolation == "nearest":
         resample = Image.NEAREST
     elif interpolation == "box":
@@ -32,7 +31,7 @@ def resize_dataset(dataset, save_paths, resolution, interpolation):
         resample = Image.LANCZOS
 
     resized_image = image.resize((resolution[0], resolution[1]), resample=resample)
-    
+
     resized_mask = mask.resize((resolution[0], resolution[1]), resample=Image.NEAREST)
     resized_image.save(save_paths[0])
     resized_mask.save(save_paths[1])
@@ -63,17 +62,16 @@ def createDataset(list_subfolders, shuffle=False):
     train_set = []
     test_set = []
     val_set = []
-    
 
     for dir in list_subfolders:
         glob_list_img = []
         glob_list_mask = []
-        for extention in ['png', 'jpg', 'jpeg']:
+        for extention in ["png", "jpg", "jpeg"]:
             glob_path_img = os.path.join(dir, f"images/*.{extention}")
             glob_list_img.extend(glob.glob(glob_path_img))
             glob_path_mask = os.path.join(dir, f"masks/*.{extention}")
             glob_list_mask.extend(glob.glob(glob_path_mask))
-    
+
         images = sorted(glob_list_img)
         masks = sorted(glob_list_mask)
 
@@ -91,7 +89,7 @@ def createDataset(list_subfolders, shuffle=False):
                     if os.path.basename(masks[i]) not in os.path.basename(images[i]):
                         raise Exception(f"{masks[i]} does not have a mask")
 
-        dataset = list(zip(images, masks))   
+        dataset = list(zip(images, masks))
 
         if shuffle:
             random.seed(1)
@@ -104,7 +102,7 @@ def createDataset(list_subfolders, shuffle=False):
                 assert (
                     img_filename == mask_filename
                 ), f"Lists are not sorted the same {dataset[i][0]} != {dataset[i][1]}"
-                
+
         if "train" in os.path.basename(dir):
             train_set.extend(dataset)
         if "test" in os.path.basename(dir):
@@ -126,7 +124,7 @@ def assemble_dataset(root_dir, resolution, interpol):
         f"{resolution[0]}-{resolution[1]}/",
         interpol,
     )
-    
+
     for dir in ["train", "val", "test"]:
         # generate save paths
         img_save_dir = os.path.join(save_dir, dir, "images")
@@ -134,7 +132,7 @@ def assemble_dataset(root_dir, resolution, interpol):
         for subdir in [img_save_dir, mask_save_dir]:
             if not os.path.exists(subdir):
                 os.makedirs(subdir, exist_ok=True)
-        
+
         if dir == "train":
             paths = train.copy()
         elif dir == "val":
@@ -159,7 +157,7 @@ def assemble_dataset(root_dir, resolution, interpol):
                     f"{mask_name}.png",
                 )
             )
-        
+
         arguments2 = (
             paths,
             list(zip(img_save, mask_save)),
@@ -191,20 +189,16 @@ def main(dataset_dir, resolution, interpolation):
     ), f"{resolution} should consist of 2 values: width, height"
 
     for interpol in interpolation:
-        assembled_path = assemble_dataset(
-            dataset_dir, resolution, interpol
-        )
-        
+        assembled_path = assemble_dataset(dataset_dir, resolution, interpol)
+
         print(f"Dataset generated on: {assembled_path}")
 
     return assembled_path
 
 
 if __name__ == "__main__":
-    base_path = '/home/s0559816/Desktop/dataset2/base'
-    resolution = (720,304)
+    base_path = "/home/s0559816/Desktop/dataset2/base"
+    resolution = (720, 304)
     interpolation = ["nearest", "bilinear"]
-    
-    
-    main(base_path, resolution, interpolation)
 
+    main(base_path, resolution, interpolation)

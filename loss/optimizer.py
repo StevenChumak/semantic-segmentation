@@ -31,10 +31,10 @@ POSSIBILITY OF SUCH DAMAGE.
 # Optimizer and scheduler related tasks
 
 import math
-import torch
 
-from torch import optim
+import torch
 from runx.logx import logx
+from torch import optim
 
 from config import cfg
 from loss.radam import RAdam
@@ -46,23 +46,25 @@ def get_optimizer(args, net):
     """
     param_groups = net.parameters()
 
-    if args.optimizer == 'sgd':
-        optimizer = optim.SGD(param_groups,
-                              lr=args.lr,
-                              weight_decay=args.weight_decay,
-                              momentum=args.momentum,
-                              nesterov=False)
-    elif args.optimizer == 'adam':
-        optimizer = optim.Adam(param_groups,
-                               lr=args.lr,
-                               weight_decay=args.weight_decay,
-                               amsgrad=args.amsgrad)
-    elif args.optimizer == 'radam':
-        optimizer = RAdam(param_groups,
-                          lr=args.lr,
-                          weight_decay=args.weight_decay)
+    if args.optimizer == "sgd":
+        optimizer = optim.SGD(
+            param_groups,
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+            momentum=args.momentum,
+            nesterov=False,
+        )
+    elif args.optimizer == "adam":
+        optimizer = optim.Adam(
+            param_groups,
+            lr=args.lr,
+            weight_decay=args.weight_decay,
+            amsgrad=args.amsgrad,
+        )
+    elif args.optimizer == "radam":
+        optimizer = RAdam(param_groups, lr=args.lr, weight_decay=args.weight_decay)
     else:
-        raise ValueError('Not a valid optimizer')
+        raise ValueError("Not a valid optimizer")
 
     def poly_schd(epoch):
         return math.pow(1 - epoch / args.max_epoch, args.poly_exp)
@@ -74,26 +76,28 @@ def get_optimizer(args, net):
             poly_exp = 2 * args.poly_exp
         return math.pow(1 - epoch / args.max_epoch, poly_exp)
 
-    if args.lr_schedule == 'scl-poly':
+    if args.lr_schedule == "scl-poly":
         if cfg.REDUCE_BORDER_EPOCH == -1:
-            raise ValueError('ERROR Cannot Do Scale Poly')
+            raise ValueError("ERROR Cannot Do Scale Poly")
 
         rescale_thresh = cfg.REDUCE_BORDER_EPOCH
         scale_value = args.rescale
-        lambda1 = lambda epoch: \
-             math.pow(1 - epoch / args.max_epoch,
-                      args.poly_exp) if epoch < rescale_thresh else scale_value * math.pow(
-                          1 - (epoch - rescale_thresh) / (args.max_epoch - rescale_thresh),
-                          args.repoly)
+        lambda1 = (
+            lambda epoch: math.pow(1 - epoch / args.max_epoch, args.poly_exp)
+            if epoch < rescale_thresh
+            else scale_value
+            * math.pow(
+                1 - (epoch - rescale_thresh) / (args.max_epoch - rescale_thresh),
+                args.repoly,
+            )
+        )
         scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda1)
-    elif args.lr_schedule == 'poly2':
-        scheduler = optim.lr_scheduler.LambdaLR(optimizer,
-                                                lr_lambda=poly2_schd)
-    elif args.lr_schedule == 'poly':
-        scheduler = optim.lr_scheduler.LambdaLR(optimizer,
-                                                lr_lambda=poly_schd)
+    elif args.lr_schedule == "poly2":
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=poly2_schd)
+    elif args.lr_schedule == "poly":
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=poly_schd)
     else:
-        raise ValueError('unknown lr schedule {}'.format(args.lr_schedule))
+        raise ValueError("unknown lr schedule {}".format(args.lr_schedule))
 
     return optimizer, scheduler
 
@@ -103,7 +107,9 @@ def load_weights(net, optimizer, snapshot_file, restore_optimizer_bool=False):
     Load weights from snapshot file
     """
     logx.msg("Loading weights from model {}".format(snapshot_file))
-    net, optimizer = restore_snapshot(net, optimizer, snapshot_file, restore_optimizer_bool)
+    net, optimizer = restore_snapshot(
+        net, optimizer, snapshot_file, restore_optimizer_bool
+    )
     return net, optimizer
 
 
@@ -111,13 +117,13 @@ def restore_snapshot(net, optimizer, snapshot, restore_optimizer_bool):
     """
     Restore weights and optimizer (if needed ) for resuming job.
     """
-    checkpoint = torch.load(snapshot, map_location=torch.device('cpu'))
+    checkpoint = torch.load(snapshot, map_location=torch.device("cpu"))
     logx.msg("Checkpoint Load Compelete")
-    if optimizer is not None and 'optimizer' in checkpoint and restore_optimizer_bool:
-        optimizer.load_state_dict(checkpoint['optimizer'])
+    if optimizer is not None and "optimizer" in checkpoint and restore_optimizer_bool:
+        optimizer.load_state_dict(checkpoint["optimizer"])
 
-    if 'state_dict' in checkpoint:
-        net = forgiving_state_restore(net, checkpoint['state_dict'])
+    if "state_dict" in checkpoint:
+        net = forgiving_state_restore(net, checkpoint["state_dict"])
     else:
         net = forgiving_state_restore(net, checkpoint)
 
@@ -125,13 +131,13 @@ def restore_snapshot(net, optimizer, snapshot, restore_optimizer_bool):
 
 
 def restore_opt(optimizer, checkpoint):
-    assert 'optimizer' in checkpoint, 'cant find optimizer in checkpoint'
-    optimizer.load_state_dict(checkpoint['optimizer'])
+    assert "optimizer" in checkpoint, "cant find optimizer in checkpoint"
+    optimizer.load_state_dict(checkpoint["optimizer"])
 
 
 def restore_net(net, checkpoint):
-    assert 'state_dict' in checkpoint, 'cant find state_dict in checkpoint'
-    forgiving_state_restore(net, checkpoint['state_dict'])
+    assert "state_dict" in checkpoint, "cant find state_dict in checkpoint"
+    forgiving_state_restore(net, checkpoint["state_dict"])
 
 
 def forgiving_state_restore(net, loaded_dict):
@@ -145,9 +151,12 @@ def forgiving_state_restore(net, loaded_dict):
     new_loaded_dict = {}
     for k in net_state_dict:
         new_k = k
-        if new_k in loaded_dict and net_state_dict[k].size() == loaded_dict[new_k].size():
+        if (
+            new_k in loaded_dict
+            and net_state_dict[k].size() == loaded_dict[new_k].size()
+        ):
             new_loaded_dict[k] = loaded_dict[new_k]
-        else:            
+        else:
             logx.msg("Skipped loading parameter {}".format(k))
     net_state_dict.update(new_loaded_dict)
     net.load_state_dict(net_state_dict)
