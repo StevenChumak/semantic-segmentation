@@ -3,10 +3,9 @@ CMD: "python train.py"
 
 HPARAMS: [
   {
-    arch: unet.unet,
+    arch: wcid.wcid,
     result_dir: LOGDIR,
-    dataset: se_perception,
-  #  dataset: railsem19,
+    dataset: se_perception_knots,
     n_scales: "0.5,1.0",
     lr: 5e-4,
     bs_trn: 2,
@@ -16,11 +15,8 @@ HPARAMS: [
     weight_decay: 5e-5,
     max_epoch: 150,
 
-  #  crop_size: "500,1000",
-  #  class_uniform_tile: 100,
-
-    crop_size: "544,960",
-    class_uniform_tile: 136,
+    crop_size: "64,64",
+    class_uniform_tile: 16,
 
     scale_min: 0.8,
     scale_max: 1.2,
@@ -28,17 +24,17 @@ HPARAMS: [
     brt_aug: True,
     bg_swap: True,
 
-  #  rmi_loss: true,
+    rmi_loss: true,
 
   # rmi_loss does not work with fp16
-    fp16: true,
-    optimizer: "adam",
-    amsgrad: true,
+  #  fp16: true,
+  #  optimizer: "adam",
+  #  amsgrad: true,
 
   # does not work without apex's C++ extensions
   #  apex: true,
   #  syncbn: true,
-    resume: "/home/s0559816/Desktop/semantic-segmentation/logs/train_unet/unet.unet/544,960/136/_flying-stoat_2022.11.11_11.10/last_checkpoint_ep132.pth",
-    RUNX.TAG: '{arch}/{crop_size}/{class_uniform_tile}/',
+
+   RUNX.TAG: '{arch}/{crop_size}/{class_uniform_tile}/',
   },
 ]

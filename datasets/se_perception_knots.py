@@ -15,7 +15,7 @@ from datasets.base_loader import BaseLoader
 
 class Loader(BaseLoader):
     ignore_label = 255
-    num_classes = 3
+    num_classes = 2
     trainid_to_name = {}
     color_mapping = []
 
@@ -40,29 +40,13 @@ class Loader(BaseLoader):
 
         self.labels = {
             ####### rails only #######
-            # "background": {"id": 0, "trainId": 0},
-            # "left_trackbed": {"id": 48, "trainId": 0},
-            # "left_rails": {"id": 49, "trainId": 2},
-            # "ego_trackbed": {"id": 50, "trainId": 0},
-            # "ego_rails": {"id": 51, "trainId": 1},
-            # "right_trackbed": {"id": 52, "trainId": 0},
-            # "right_rail": {"id": 53, "trainId": 2},
-            ####### ego trackbed-rails single, neighbors combined #######
-            # "background": {"id": 0, "trainId": 0},
-            # "left_trackbed": {"id": 48, "trainId": 3},
-            # "left_rails": {"id": 49, "trainId": 3},
-            # "ego_trackbed": {"id": 50, "trainId": 1},
-            # "ego_rails": {"id": 51, "trainId": 2},
-            # "right_trackbed": {"id": 52, "trainId": 3},
-            # "right_rail": {"id": 53, "trainId": 3},
-            ####### trackbed-rails combined #######
             "background": {"id": 0, "trainId": 0},
-            "left_trackbed": {"id": 48, "trainId": 2},
-            "left_rails": {"id": 49, "trainId": 2},
-            "ego_trackbed": {"id": 50, "trainId": 1},
+            "left_trackbed": {"id": 48, "trainId": 0},
+            "left_rails": {"id": 49, "trainId": 1},
+            "ego_trackbed": {"id": 50, "trainId": 0},
             "ego_rails": {"id": 51, "trainId": 1},
-            "right_trackbed": {"id": 52, "trainId": 2},
-            "right_rail": {"id": 53, "trainId": 2},
+            "right_trackbed": {"id": 52, "trainId": 0},
+            "right_rail": {"id": 53, "trainId": 1},
         }
         logx.msg(f"Using following Labeling: {self.labels}")
 
@@ -92,8 +76,7 @@ class Loader(BaseLoader):
             img_root = os.path.join(eval_folder, "images")
             mask_root = os.path.join(eval_folder, "masks")
         else:
-            self.root = cfg.DATASET.TRAINRAILS_DIR
-            # self.root = cfg.DATASET.KNOTS_DIR
+            self.root = cfg.DATASET.KNOTS_DIR
             extra = None
             size = str(cfg.DATASET.CROP_SIZE).split(",")
             size_str = "{}-{}".format(size[1], size[0])
@@ -165,9 +148,6 @@ class Loader(BaseLoader):
 
         if self.label_transform is not None:
             mask = self.label_transform(mask)
-
-        # print(f"image shape: {img.shape}")
-        # print(f"mask shape: {mask.shape}")
 
         return img, mask, scale_float
 

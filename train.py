@@ -49,8 +49,6 @@ from utils.trnval_utils import eval_minibatch, validate_topn
 # os.environ['CUDA_VISIBLE_DEVICES'] = "1"
 
 
-
-
 # Import autoresume module
 sys.path.append(os.environ.get("SUBMIT_SCRIPTS", "."))
 AutoResume = None
