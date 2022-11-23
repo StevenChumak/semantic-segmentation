@@ -21,12 +21,20 @@ HPARAMS: [
 
    crop_size: "544,960",
    class_uniform_tile: 136,
-
+  
    scale_min: 0.8,
-   scale_max: 1.2,
-   gblur: True,
-   brt_aug: True,
+   scale_max: 1.0,
+   crop_probability: 0, 
+
+   hflip: 0.5,
+   randomBrightnessContrast: 0.2,
+   rotate_min: -2.5, 
+   rotate_max: 2.5,
+   rotate_probability:  0.9, 
+
+   motionBlur: 0.1,
    bg_swap: True,
+
 
    rmi_loss: true,
 

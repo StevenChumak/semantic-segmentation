@@ -15,7 +15,7 @@ from datasets.base_loader import BaseLoader
 
 class Loader(BaseLoader):
     ignore_label = 255
-    num_classes = 3
+    num_classes = 4
     trainid_to_name = {}
     color_mapping = []
 
@@ -27,6 +27,7 @@ class Loader(BaseLoader):
         img_transform=None,
         label_transform=None,
         eval_folder=None,
+        albumentations=None,
         bg_swap=False,
     ):
 
@@ -36,33 +37,19 @@ class Loader(BaseLoader):
             joint_transform_list=joint_transform_list,
             img_transform=img_transform,
             label_transform=label_transform,
+            albumentations=albumentations,
         )
-
+        
+        
         self.labels = {
-            ####### rails only #######
-            # "background": {"id": 0, "trainId": 0},
-            # "left_trackbed": {"id": 48, "trainId": 0},
-            # "left_rails": {"id": 49, "trainId": 2},
-            # "ego_trackbed": {"id": 50, "trainId": 0},
-            # "ego_rails": {"id": 51, "trainId": 1},
-            # "right_trackbed": {"id": 52, "trainId": 0},
-            # "right_rail": {"id": 53, "trainId": 2},
             ####### ego trackbed-rails single, neighbors combined #######
-            # "background": {"id": 0, "trainId": 0},
-            # "left_trackbed": {"id": 48, "trainId": 3},
-            # "left_rails": {"id": 49, "trainId": 3},
-            # "ego_trackbed": {"id": 50, "trainId": 1},
-            # "ego_rails": {"id": 51, "trainId": 2},
-            # "right_trackbed": {"id": 52, "trainId": 3},
-            # "right_rail": {"id": 53, "trainId": 3},
-            ####### trackbed-rails combined #######
             "background": {"id": 0, "trainId": 0},
-            "left_trackbed": {"id": 48, "trainId": 2},
-            "left_rails": {"id": 49, "trainId": 2},
+            "left_trackbed": {"id": 48, "trainId": 3},
+            "left_rails": {"id": 49, "trainId": 3},
             "ego_trackbed": {"id": 50, "trainId": 1},
-            "ego_rails": {"id": 51, "trainId": 1},
-            "right_trackbed": {"id": 52, "trainId": 2},
-            "right_rail": {"id": 53, "trainId": 2},
+            "ego_rails": {"id": 51, "trainId": 2},
+            "right_trackbed": {"id": 52, "trainId": 3},
+            "right_rail": {"id": 53, "trainId": 3},
         }
         logx.msg(f"Using following Labeling: {self.labels}")
 
@@ -73,7 +60,6 @@ class Loader(BaseLoader):
             self.labels[label]["id"]: self.labels[label]["trainId"]
             for label in self.labels
         }
-        # self.num_classes = max(self.id_to_trainid.values()) + 1
 
         self.fill_colormap()
 
@@ -96,6 +82,7 @@ class Loader(BaseLoader):
             # self.root = cfg.DATASET.KNOTS_DIR
             extra = None
             size = str(cfg.DATASET.CROP_SIZE).split(",")
+            
             size_str = "{}-{}".format(size[1], size[0])
             self.root = os.path.join(
                 self.root, size_str, extra if extra is not None else ""
@@ -138,25 +125,18 @@ class Loader(BaseLoader):
         :returns: image, mask
         """
         scale_float = 1.0
-
-        if self.joint_transform_list is not None:
-            for idx, xform in enumerate(self.joint_transform_list):
-                if idx == 0 and centroid is not None:
-                    # HACK! Assume the first transform accepts a centroid
-                    outputs = xform(img, mask, centroid)
-                else:
-                    outputs = xform(img, mask)
-
-                if len(outputs) == 3:
-                    img, mask, scale_float = outputs
-                else:
-                    img, mask = outputs
-
+        
         if self.bg:
             import transforms.RandomSwapBackground as swap
 
             img = swap.swap_background(img, mask=mask, background=background)
 
+        if self.albumentations is not None:
+            transformed = self.albumentations(image=np.array(img), mask=np.array(mask))
+        
+            img = Image.fromarray(transformed["image"])
+            mask = Image.fromarray(transformed["mask"])
+            
         if self.img_transform is not None:
             img = self.img_transform(img)
 
@@ -165,10 +145,7 @@ class Loader(BaseLoader):
 
         if self.label_transform is not None:
             mask = self.label_transform(mask)
-
-        # print(f"image shape: {img.shape}")
-        # print(f"mask shape: {mask.shape}")
-
+            
         return img, mask, scale_float
 
     def __getitem__(self, index):

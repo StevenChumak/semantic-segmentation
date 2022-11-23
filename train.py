@@ -239,18 +239,6 @@ parser.add_argument(
     default="896",
     help=("training crop size: either scalar or h,w"),
 )
-parser.add_argument(
-    "--scale_min",
-    type=float,
-    default=0.5,
-    help="dynamically scale training images down to this size",
-)
-parser.add_argument(
-    "--scale_max",
-    type=float,
-    default=2.0,
-    help="dynamically scale training images up to this size",
-)
 parser.add_argument("--weight_decay", type=float, default=1e-4)
 parser.add_argument("--momentum", type=float, default=0.9)
 parser.add_argument("--snapshot", type=str, default=None)
@@ -461,6 +449,66 @@ parser.add_argument(
 parser.add_argument(
     "--time", action="store_true", default=False, help="swap image background at random"
 )
+
+parser.add_argument(
+    "--scale_min",
+    type=float,
+    default=0.8,
+    help="dynamically scale training images down to this size",
+)
+parser.add_argument(
+    "--scale_max",
+    type=float,
+    default=1.0,
+    help="dynamically scale training images up to this size",
+)
+parser.add_argument(
+    "--crop_probability", 
+    type=float,
+    default=0,
+    help="probability to apply random resize crop within [scale_min | scale_max]",
+)
+
+parser.add_argument(
+    "--rotate_min",
+    type=float,
+    default=-2.5,
+    help="dynamically scale training images down to this size",
+)
+parser.add_argument(
+    "--rotate_max",
+    type=float,
+    default=2.5,
+    help="dynamically scale training images up to this size",
+)
+parser.add_argument(
+    "--rotate_probability", 
+    type=float,
+    default=0.9,
+    help="probability to apply random rotation crop within [rotate_min | rotate_max]",
+)
+
+parser.add_argument(
+    "--randomBrightnessContrast", 
+    type=float,
+    default=0.9,
+    help="probability to apply albumentations randomBrightnessContrast function with default settings",
+)
+
+parser.add_argument(
+    "--motionBlur", 
+    type=float,
+    default=0.1,
+    help="probability to apply albumentations motionBlur function with default settings",
+)
+
+parser.add_argument(
+    "--hflip",
+    type=float,
+    default=0.5,
+    help="probability to apply albumentations HorizontalFlip function",
+)
+
 
 
 args = parser.parse_args()

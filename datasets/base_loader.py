@@ -45,7 +45,7 @@ from utils.misc import tensor_to_pil
 
 class BaseLoader(data.Dataset):
     def __init__(
-        self, quality, mode, joint_transform_list, img_transform, label_transform
+        self, quality, mode, joint_transform_list, img_transform, label_transform, albumentations = None,
     ):
 
         super(BaseLoader, self).__init__()
@@ -60,6 +60,7 @@ class BaseLoader(data.Dataset):
         self.all_imgs = None
         self.drop_mask = np.zeros((1024, 2048))
         self.drop_mask[15:840, 14:2030] = 1.0
+        self.albumentations = albumentations
 
     def build_epoch(self):
         """
