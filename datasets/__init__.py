@@ -32,10 +32,10 @@ Dataset setup and loaders
 
 import importlib
 
+import albumentations as A
 import torchvision.transforms as standard_transforms
 from runx.logx import logx
 from torch.utils.data import DataLoader
-import albumentations as A
 
 import transforms.joint_transforms as joint_transforms
 import transforms.transforms as extended_transforms
@@ -61,23 +61,25 @@ def setup_loaders(args):
     update_dataset_cfg(
         num_classes=dataset_cls.num_classes, ignore_label=dataset_cls.ignore_label
     )
-            
+
     if "," in args.crop_size:
         args.crop_size = [int(x) for x in args.crop_size.split(",")]
     else:
         args.crop_size = int(args.crop_size)
-        
+
     transform = A.Compose(
         [
             A.RandomResizedCrop(
-                height=args.crop_size[0], 
+                height=args.crop_size[0],
                 width=args.crop_size[1],
-                p= args.crop_probability,
+                p=args.crop_probability,
                 scale=(args.scale_min, args.scale_max),
             ),
             A.HorizontalFlip(p=args.hflip),
             A.RandomBrightnessContrast(p=args.randomBrightnessContrast),
-            A.Rotate(limit=(args.rotate_min, args.rotate_max), p=args.rotate_probability),
+            A.Rotate(
+                limit=(args.rotate_min, args.rotate_max), p=args.rotate_probability
+            ),
             A.MotionBlur(
                 always_apply=False,
                 p=args.motionBlur,
@@ -92,15 +94,15 @@ def setup_loaders(args):
 
     # Joint transformations that must happen on both image and mask
     train_joint_transform_list = []
-        # # TODO FIXME: move these hparams into cfg
-        # joint_transforms.RandomSizeAndCrop(
-        #     args.crop_size,
-        #     False,
-        #     scale_min=args.scale_min,
-        #     scale_max=args.scale_max,
-        #     full_size=args.full_crop_training,
-        #     pre_size=args.pre_size,
-        # )
+    # # TODO FIXME: move these hparams into cfg
+    # joint_transforms.RandomSizeAndCrop(
+    #     args.crop_size,
+    #     False,
+    #     scale_min=args.scale_min,
+    #     scale_max=args.scale_max,
+    #     full_size=args.full_crop_training,
+    #     pre_size=args.pre_size,
+    # )
     # ]
     # train_joint_transform_list.append(joint_transforms.RandomHorizontallyFlip())
     # train_joint_transform_list.append(joint_transforms.RandomRotate(2.5))
@@ -181,7 +183,7 @@ def setup_loaders(args):
         img_transform=val_input_transform,
         label_transform=target_transform,
         eval_folder=args.eval_folder,
-        albumentations=None
+        albumentations=None,
     )
 
     update_dataset_inst(dataset_inst=val_set)
@@ -215,7 +217,7 @@ def setup_loaders(args):
             img_transform=train_input_transform,
             label_transform=target_train_transform,
             bg_swap=args.bg_swap,
-            albumentations=transform
+            albumentations=transform,
         )
 
         if args.apex:

@@ -39,8 +39,7 @@ class Loader(BaseLoader):
             label_transform=label_transform,
             albumentations=albumentations,
         )
-        
-        
+
         self.labels = {
             ####### ego trackbed-rails single, neighbors combined #######
             "background": {"id": 0, "trainId": 0},
@@ -82,7 +81,7 @@ class Loader(BaseLoader):
             # self.root = cfg.DATASET.KNOTS_DIR
             extra = None
             size = str(cfg.DATASET.CROP_SIZE).split(",")
-            
+
             size_str = "{}-{}".format(size[1], size[0])
             self.root = os.path.join(
                 self.root, size_str, extra if extra is not None else ""
@@ -125,7 +124,7 @@ class Loader(BaseLoader):
         :returns: image, mask
         """
         scale_float = 1.0
-        
+
         if self.bg:
             import transforms.RandomSwapBackground as swap
 
@@ -133,10 +132,10 @@ class Loader(BaseLoader):
 
         if self.albumentations is not None:
             transformed = self.albumentations(image=np.array(img), mask=np.array(mask))
-        
+
             img = Image.fromarray(transformed["image"])
             mask = Image.fromarray(transformed["mask"])
-            
+
         if self.img_transform is not None:
             img = self.img_transform(img)
 
@@ -145,7 +144,7 @@ class Loader(BaseLoader):
 
         if self.label_transform is not None:
             mask = self.label_transform(mask)
-            
+
         return img, mask, scale_float
 
     def __getitem__(self, index):

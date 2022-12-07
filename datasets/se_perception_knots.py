@@ -27,6 +27,7 @@ class Loader(BaseLoader):
         img_transform=None,
         label_transform=None,
         eval_folder=None,
+        albumentations=None,
         bg_swap=False,
     ):
 
@@ -36,6 +37,7 @@ class Loader(BaseLoader):
             joint_transform_list=joint_transform_list,
             img_transform=img_transform,
             label_transform=label_transform,
+            albumentations=None,
         )
 
         self.labels = {
@@ -57,7 +59,6 @@ class Loader(BaseLoader):
             self.labels[label]["id"]: self.labels[label]["trainId"]
             for label in self.labels
         }
-        # self.num_classes = max(self.id_to_trainid.values()) + 1
 
         self.fill_colormap()
 

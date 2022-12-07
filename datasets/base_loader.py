@@ -45,7 +45,13 @@ from utils.misc import tensor_to_pil
 
 class BaseLoader(data.Dataset):
     def __init__(
-        self, quality, mode, joint_transform_list, img_transform, label_transform, albumentations = None,
+        self,
+        quality,
+        mode,
+        joint_transform_list,
+        img_transform,
+        label_transform,
+        albumentations=None,
     ):
 
         super(BaseLoader, self).__init__()

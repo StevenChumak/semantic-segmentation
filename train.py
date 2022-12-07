@@ -463,7 +463,7 @@ parser.add_argument(
     help="dynamically scale training images up to this size",
 )
 parser.add_argument(
-    "--crop_probability", 
+    "--crop_probability",
     type=float,
     default=0,
     help="probability to apply random resize crop within [scale_min | scale_max]",
@@ -482,21 +482,21 @@ parser.add_argument(
     help="dynamically scale training images up to this size",
 )
 parser.add_argument(
-    "--rotate_probability", 
+    "--rotate_probability",
     type=float,
     default=0.9,
     help="probability to apply random rotation crop within [rotate_min | rotate_max]",
 )
 
 parser.add_argument(
-    "--randomBrightnessContrast", 
+    "--randomBrightnessContrast",
     type=float,
     default=0.9,
     help="probability to apply albumentations randomBrightnessContrast function with default settings",
 )
 
 parser.add_argument(
-    "--motionBlur", 
+    "--motionBlur",
     type=float,
     default=0.1,
     help="probability to apply albumentations motionBlur function with default settings",
@@ -508,7 +508,6 @@ parser.add_argument(
     default=0.5,
     help="probability to apply albumentations HorizontalFlip function",
 )
-
 
 
 args = parser.parse_args()
