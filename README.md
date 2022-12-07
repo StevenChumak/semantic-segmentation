@@ -1,3 +1,47 @@
+Um diese Scripte zu verwenden wird eine Conda-Environment benötigt.
+Diese kann mit folgendem Terminal-Befehl installiert werden:
+```
+conda env create --file environment.yml
+```
+nach der Installation muss das Conda-Environmen aktiviert werden:
+
+```
+conda activate nvidia
+```
+Und folgende Terminal-Befehl eingegeben werden:
+```
+pip install --extra-index-url https://developer.download.nvidia.com/compute/redist --upgrade nvidia-dali-cuda102
+git clone https://github.com/NVIDIA/apex.git apex && cd apex && pip install -v --disable-pip-version-check --no-cache-dir ./ && cd ..
+```
+
+Zum trainieren des HRNet+OCRNet+MScale-Netzwerkes bitt folgendes in das Terminal eingeben:
+```
+python -m runx.runx scripts/train_nvidia.yml -i
+```
+Zum trainieren des UNet-Netzwerkes bitt folgendes in das Terminal eingeben:
+```
+python -m runx.runx scripts/train_unet.yml -i
+```
+
+Zum trainieren des WCID-Netzwerkes bitt folgendes in das Terminal eingeben:
+```
+python -m runx.runx scripts/train_wcid.yml -i
+```
+
+Die Pfade zu einem Datensatz können in der config.py Datei angepasst werden. Hierbei ist zu beachten, dass:
+```
+__C.ASSETS_PATH 
+```
+und 
+```
+__C.DATASET.TRAINRAILS_DIR
+```
+korrekt verändert werden.
+
+
+######################################################################################################################################################
+
+
 ### [Paper](https://arxiv.org/abs/2005.10821) | [YouTube](https://youtu.be/odAGA7pFBGA)  | [Cityscapes Score](https://www.cityscapes-dataset.com/method-details/?submissionID=7836) <br>
 
 Pytorch implementation of our paper [Hierarchical Multi-Scale Attention for Semantic Segmentation](https://arxiv.org/abs/2005.10821).<br>
